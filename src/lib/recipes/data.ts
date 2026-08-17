@@ -8,8 +8,9 @@
  */
 
 import type { Recipe } from './types';
+import { EXTRA_RECIPES } from './data-extra';
 
-export const RECIPES: readonly Recipe[] = [
+const CORE_RECIPES: readonly Recipe[] = [
 	// ---- Hauptgerichte (Zmittag / Znacht) ----
 	{
 		id: 'spaghetti-bolognese',
@@ -1250,3 +1251,6 @@ export const RECIPES: readonly Recipe[] = [
 		cooking: { kochstellen: 1, brauchtOfen: false, ruestBasisMin: 10, ruestProPortionMin: 0.1 }
 	}
 ];
+
+/** The full recipe collection (core + extra), 60+ recipes for the DoD. */
+export const RECIPES: readonly Recipe[] = [...CORE_RECIPES, ...EXTRA_RECIPES];

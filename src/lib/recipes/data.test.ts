@@ -4,8 +4,8 @@ import { baseQuantity } from '../quantities/data';
 import { RECIPES } from './data';
 
 describe('recipe collection', () => {
-	it('has at least 20 recipes (Phase 2 target)', () => {
-		expect(RECIPES.length).toBeGreaterThanOrEqual(20);
+	it('has at least 60 recipes (Definition of Done, Kapitel 11)', () => {
+		expect(RECIPES.length).toBeGreaterThanOrEqual(60);
 	});
 
 	it('has unique ids', () => {
