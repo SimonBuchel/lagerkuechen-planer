@@ -2,6 +2,7 @@
 	import type { Category, ParsedBlock, ParsedDay, ParsedProgram } from '$lib/parser/types';
 	import { CATEGORY_LABELS } from '$lib/parser/types';
 	import { emptyProgram, manualDay, standardTemplate } from '$lib/templates';
+	import { setProgram } from '$lib/stores/session.svelte';
 
 	const CATEGORIES: Category[] = ['ES', 'LA', 'LP', 'LS'];
 	const CATEGORY_STYLE: Record<Category, string> = {
@@ -16,6 +17,11 @@
 	let lastFile = $state<File | null>(null);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
+
+	// Share the current programme with the menu planner (in-session, no storage).
+	$effect(() => {
+		if (program) setProgram(program);
+	});
 
 	const specialCount = $derived(
 		program
@@ -297,8 +303,13 @@
 				onclick={addDay}>+ Tag hinzufügen</button
 			>
 			<button
-				class="ml-auto rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+				class="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
 				onclick={downloadJson}>Als JSON exportieren</button
+			>
+			<a
+				href="/menu"
+				class="ml-auto inline-flex items-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+				>Zum Menüplan →</a
 			>
 		</div>
 
