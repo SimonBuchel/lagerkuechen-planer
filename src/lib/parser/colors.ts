@@ -82,28 +82,36 @@ export function learnLegend(
 	const vTolerance = opts.vTolerance ?? 6;
 
 	const footTop = page.height * footFraction;
-	const swatches = page.rects.filter((r) => {
-		const w = r.x1 - r.x0;
-		const h = r.bottom - r.top;
-		const centerTop = (r.top + r.bottom) / 2;
-		return (
-			centerTop >= footTop &&
-			w > 1 &&
-			h > 1 &&
-			w <= maxSwatchSize &&
-			h <= maxSwatchSize &&
-			!isNearWhite(r.fill)
-		);
-	});
+	const swatches = page.rects
+		.filter((r) => {
+			const w = r.x1 - r.x0;
+			const h = r.bottom - r.top;
+			const centerTop = (r.top + r.bottom) / 2;
+			return (
+				centerTop >= footTop &&
+				w > 1 &&
+				h > 1 &&
+				w <= maxSwatchSize &&
+				h <= maxSwatchSize &&
+				!isNearWhite(r.fill)
+			);
+		})
+		.sort((a, b) => a.x0 - b.x0);
 
 	const entries: LegendEntry[] = [];
 	const seen = new Set<Category>();
 
-	for (const swatch of swatches) {
+	for (let i = 0; i < swatches.length; i++) {
+		const swatch = swatches[i];
 		const swatchMidTop = (swatch.top + swatch.bottom) / 2;
-		const label = nearestLabelToRight(page.words, swatch.x1, swatchMidTop, vTolerance);
-		if (!label) continue;
-		const category = categoryFromLabel(label.text);
+		// Read up to the next swatch on the same row, so the whole label is captured.
+		const next = swatches
+			.slice(i + 1)
+			.find((s) => Math.abs((s.top + s.bottom) / 2 - swatchMidTop) <= vTolerance);
+		const rightBound = next ? next.x0 - 2 : swatch.x1 + 170;
+
+		const label = reconstructLabelText(page.words, swatch.x1, rightBound, swatchMidTop, vTolerance);
+		const category = categoryFromLabel(label);
 		if (!category || seen.has(category)) continue;
 		seen.add(category);
 		entries.push({ color: swatch.fill, category, source: 'legend' });
@@ -112,26 +120,33 @@ export function learnLegend(
 	return entries;
 }
 
-/** Finds the label word nearest to (and to the right of) a swatch's right edge. */
-function nearestLabelToRight(
+/**
+ * Reassembles a legend label from the fragmented word tokens sitting to the
+ * right of a swatch, between its right edge and the next swatch. eCamp splits
+ * labels into many pieces ("La", "ge", "r", …), so we concatenate every
+ * fragment on the swatch's baseline in reading order.
+ */
+function reconstructLabelText(
 	words: Word[],
 	swatchRight: number,
+	rightBound: number,
 	swatchMidTop: number,
 	vTolerance: number
-): Word | null {
-	let best: Word | null = null;
-	let bestDx = Infinity;
-	for (const w of words) {
-		const wordMidTop = (w.top + w.bottom) / 2;
-		if (Math.abs(wordMidTop - swatchMidTop) > vTolerance) continue;
-		const dx = w.x0 - swatchRight;
-		if (dx < -2 || dx > 60) continue; // must be just to the right
-		if (dx < bestDx) {
-			bestDx = dx;
-			best = w;
-		}
-	}
-	return best;
+): string {
+	return words
+		.filter((w) => {
+			const midTop = (w.top + w.bottom) / 2;
+			return (
+				Math.abs(midTop - swatchMidTop) <= vTolerance &&
+				w.x0 >= swatchRight - 2 &&
+				w.x0 <= rightBound
+			);
+		})
+		.sort((a, b) => a.x0 - b.x0)
+		.map((w) => w.text)
+		.join('')
+		.replace(/\s+/g, ' ')
+		.trim();
 }
 
 function isNearWhite(c: RGB): boolean {

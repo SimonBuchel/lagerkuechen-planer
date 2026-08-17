@@ -45,13 +45,28 @@ export function groupWordsIntoLines(words: Word[], tolerance = 2): Word[][] {
 	return lines;
 }
 
-/** Renders one line of words to text, inserting a space between adjacent words. */
+/**
+ * Renders one line of words to text.
+ *
+ * eCamp's Skia renderer splits words into many tiny fragments ("E", "ss", "e",
+ * "n") that sit flush against each other, and emits explicit " " tokens where
+ * real spaces belong. So we concatenate fragments and only insert a space when
+ * the horizontal gap between two fragments is wide enough to be a real space —
+ * that both reassembles fragmented words and keeps genuinely separate words
+ * apart when no explicit space token is present.
+ */
 export function lineToText(line: Word[]): string {
-	return line
-		.map((w) => w.text)
-		.join(' ')
-		.replace(/\s+/g, ' ')
-		.trim();
+	if (line.length === 0) return '';
+	const sorted = [...line].sort((a, b) => a.x0 - b.x0);
+	let out = sorted[0].text;
+	for (let i = 1; i < sorted.length; i++) {
+		const prev = sorted[i - 1];
+		const cur = sorted[i];
+		const gap = cur.x0 - prev.x1;
+		const threshold = Math.max(1.4, 0.28 * (prev.bottom - prev.top));
+		out += gap > threshold ? ' ' + cur.text : cur.text;
+	}
+	return out.replace(/\s+/g, ' ').trim();
 }
 
 const LETTER_END = /[\p{L}]$/u;
@@ -96,10 +111,13 @@ export function extractResponsible(text: string): { title: string; responsible: 
 	const parts: string[] = [];
 	const title = text
 		.replace(/\[([^\]]*)\]/g, (_, inner: string) => {
-			const trimmed = inner.trim();
+			const trimmed = inner.replace(/^[\s,]+|[\s,]+$/g, '').trim();
 			if (trimmed) parts.push(trimmed);
 			return '';
 		})
+		// eCamp occasionally drops the opening bracket during fragmentation; strip
+		// any leftover stray bracket so the title stays clean.
+		.replace(/[[\]]/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim();
 	return { title, responsible: parts.length ? parts.join(', ') : null };

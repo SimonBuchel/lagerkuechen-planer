@@ -26,29 +26,77 @@ export interface Column {
 export function deriveColumns(
 	rects: FilledRect[],
 	words: Word[],
-	opts: { minGap?: number } = {}
+	opts: { minWideWidth?: number } = {}
 ): Column[] {
 	if (rects.length === 0) return [];
-	const minGap = opts.minGap ?? 8;
+	const minWideWidth = opts.minWideWidth ?? 40;
 
-	// Sort rectangles by left edge and greedily merge overlapping / adjacent
-	// x-ranges into column bands.
+	// eCamp day columns are contiguous (no horizontal gap), so gap-clustering
+	// fails. Instead we key off the regular grid: the most common width among the
+	// wide rectangles is the day-cell width, and every day cell in one column
+	// shares the same left edge. Clustering those left edges yields the columns.
+	const wide = rects.filter((r) => r.x1 - r.x0 >= minWideWidth);
+	if (wide.length >= 2) {
+		const cellWidth = modeWidth(wide);
+		const gridCells = rects.filter((r) => Math.abs(r.x1 - r.x0 - cellWidth) <= 4);
+		const xs = gridCells.map((r) => r.x0).sort((a, b) => a - b);
+		const clusters = clusterValues(xs, cellWidth * 0.5);
+		if (clusters.length >= 1) {
+			return clusters.map((c) => {
+				const x0 = Math.min(...c);
+				const x1 = x0 + cellWidth;
+				return { x0, x1, headerWords: headerWordsFor(words, x0, x1) };
+			});
+		}
+	}
+
+	// Fallback: gap-based band merging (for simple, gap-separated layouts).
 	const sorted = [...rects].sort((a, b) => a.x0 - b.x0);
 	const bands: { x0: number; x1: number }[] = [];
 	for (const r of sorted) {
 		const last = bands[bands.length - 1];
-		if (last && r.x0 <= last.x1 + minGap) {
+		if (last && r.x0 <= last.x1 + 8) {
 			last.x1 = Math.max(last.x1, r.x1);
 		} else {
 			bands.push({ x0: r.x0, x1: r.x1 });
 		}
 	}
-
 	return bands.map((b) => ({
 		x0: b.x0,
 		x1: b.x1,
 		headerWords: headerWordsFor(words, b.x0, b.x1)
 	}));
+}
+
+/** Most common rounded width among the given rectangles. */
+function modeWidth(rects: FilledRect[]): number {
+	const counts = new Map<number, number>();
+	for (const r of rects) {
+		const w = Math.round(r.x1 - r.x0);
+		counts.set(w, (counts.get(w) ?? 0) + 1);
+	}
+	let best = 0;
+	let bestCount = -1;
+	for (const [w, c] of counts) {
+		if (c > bestCount) {
+			bestCount = c;
+			best = w;
+		}
+	}
+	return best;
+}
+
+/** Groups sorted values into clusters, splitting whenever the gap exceeds `maxGap`. */
+function clusterValues(sortedValues: number[], maxGap: number): number[][] {
+	if (sortedValues.length === 0) return [];
+	const clusters: number[][] = [[sortedValues[0]]];
+	for (let i = 1; i < sortedValues.length; i++) {
+		const prev = sortedValues[i - 1];
+		const cur = sortedValues[i];
+		if (cur - prev > maxGap) clusters.push([cur]);
+		else clusters[clusters.length - 1].push(cur);
+	}
+	return clusters;
 }
 
 /** Words sitting above the grid within a column's x-range form its header. */

@@ -21,3 +21,7 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Real eCamp fixtures contain leaders' real names in the footer (revDSG /
+# Kapitel 8). Keep them local only; commit the *.expected.json goldens instead.
+src/lib/parser/__fixtures__/*.pdf

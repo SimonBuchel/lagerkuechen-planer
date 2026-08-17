@@ -58,17 +58,34 @@ export function analyzePage(
 	}
 	const classifier = buildColorClassifier(learned, { tolerance: opts.colorTolerance });
 
-	// 2. Separate legend swatches / background from activity blocks.
-	const swatchSet = new Set(collectSwatches(page));
-	const activityRects = page.rects.filter(
-		(r) => !swatchSet.has(r) && !isBackground(r, page) && isBlockSized(r)
-	);
-
-	// 3. Derive day columns from the activity rectangles.
-	const columns = deriveColumns(activityRects, page.words);
+	// 2. Derive day columns from the regular grid (all rectangles inform it).
+	const columns = deriveColumns(page.rects, page.words);
 	if (columns.length === 0) {
 		warnings.push('Keine Tagesspalten erkannt – leere oder unerwartete Seite.');
 	}
+	// The day-cell width equals a column's width; grid/header cells share it and
+	// must not be mistaken for activity blocks.
+	const cellWidth = columns.length ? columns[0].x1 - columns[0].x0 : 0;
+
+	// 3. Separate legend swatches, background and grid cells from activity blocks.
+	// A cell-width rectangle is background only where it is part of a regular
+	// stack (the empty hour grid has many per column); a lone full-width coloured
+	// block is kept.
+	const isCellWidth = (r: FilledRect) => cellWidth > 0 && Math.abs(r.x1 - r.x0 - cellWidth) <= 4;
+	const cellWidthPerColumn = columns.map(
+		(col) => page.rects.filter((r) => isCellWidth(r) && rectInColumn(r, col)).length
+	);
+	const isBackgroundGridCell = (r: FilledRect) => {
+		if (!isCellWidth(r)) return false;
+		const ci = columns.findIndex((col) => rectInColumn(r, col));
+		return ci >= 0 && cellWidthPerColumn[ci] >= 3;
+	};
+
+	const swatchSet = new Set(collectSwatches(page));
+	const activityRects = page.rects.filter(
+		(r) =>
+			!swatchSet.has(r) && !isBackground(r, page) && isBlockSized(r) && !isBackgroundGridCell(r)
+	);
 
 	// 4. Establish the time axis from the left-hand labels.
 	const timeAxis = buildTimeAxis(page, columns, opts, warnings);
@@ -252,10 +269,17 @@ function buildDay(
 	opts: AnalyzeOptions,
 	warnings: string[]
 ): ParsedDay {
-	const headerText = col.headerWords
-		.map((w) => w.text)
-		.join(' ')
-		.trim();
+	// The date is a clean single token in the column header (e.g. "22.05.2026");
+	// take the top-most one whose horizontal centre falls inside this column.
+	const dateToken = words
+		.filter((w) => DATE_RE.test(w.text) && centerXInColumn(w, col))
+		.sort((a, b) => a.top - b.top)[0];
+	const headerText = dateToken
+		? dateToken.text
+		: col.headerWords
+				.map((w) => w.text)
+				.join('')
+				.trim();
 	const parsedDate = parseHeaderDate(headerText, opts.fallbackYear);
 
 	const colRects = activityRects.filter((r) => rectInColumn(r, col)).sort((a, b) => a.top - b.top);
@@ -286,6 +310,14 @@ function buildDay(
 	});
 
 	return { date: parsedDate.iso, header: parsedDate.raw || undefined, blocks };
+}
+
+/** A day/month(/year) date token as printed in a column header. */
+const DATE_RE = /\d{1,2}\.\d{1,2}\.\d{2,4}/;
+
+function centerXInColumn(w: Word, col: Column): boolean {
+	const cx = (w.x0 + w.x1) / 2;
+	return cx >= col.x0 - 2 && cx <= col.x1 + 2;
 }
 
 function rectInColumn(r: FilledRect, col: Column): boolean {

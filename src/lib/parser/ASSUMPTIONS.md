@@ -52,8 +52,35 @@ sind reine Funktionen darüber und ohne PDF unit-getestet.
 - **Rotierte Seiten** werden aktuell mit `scale:1, rotation:0` gelesen. Stark
   rotierte Exporte (90°) sind noch nicht abgedeckt (nächster Härtungsschritt).
 
-## Definition-of-Done-Lücke
+## An echten Exporten validiert
 
-Die Fixture-Suite (`real-fixtures.test.ts`) ist verdrahtet, aber es fehlen die
-**mindestens vier echten, anonymisierten eCamp-PDFs** in `__fixtures__/`
-(Kapitel 11). Erst damit ist Phase 1 nachweislich abgeschlossen.
+Gegen drei echte Hauptlager-Exporte getestet (Querformat, 4 bis 14 Tage,
+zwei verschiedene Farb-Themes, mehrseitig). Ergebnisse und die daraus
+gelernten Anpassungen:
+
+- **Tagesspalten sind lückenlos** → Spalten werden aus der Raster-Zellbreite
+  (Modus) und geclusterten linken Kanten abgeleitet, nicht aus Lücken.
+- **Kategorie-Farben variieren stark je Theme** (ein Lager nutzt Pastelltöne,
+  ein anderes die gesättigte Referenzpalette) → Legende wird zwingend gelernt,
+  Fragmente je Farbfeld zusammengesetzt.
+- **Datum** ist ein sauberes Einzeltoken im Spaltenkopf → zuverlässig.
+- eCamp kennt teils eine **5. Kategorie «Höck» (rot)**, die nicht ES/LA/LP/LS
+  ist → solche Blöcke bleiben ohne Kategorie und werden im Assistenten zugeteilt.
+
+Bekannte Restfehler an echten Daten (alle im Assistenten korrigierbar):
+
+- **Text-Bleed bei zeitlich überlappenden Parallel-Blöcken**: gelegentlich
+  wandern Zeichen des Nachbarblocks in den Titel («k LA: …», «rregeln LS: …»),
+  weil sich zwei gleichzeitige Aktivitäten horizontal überlappen.
+- **Ankerstunde** wird bei einem Theme per PUA dekodiert, bei einem anderen
+  fällt sie auf 07:00 zurück (mit Warnung) – die Zeiten stimmen trotzdem.
+- Vereinzelt verlorene öffnende `[`-Klammer → Verantwortlich-Feld nicht
+  abgetrennt; verwaiste Klammern werden aus dem Titel entfernt.
+
+## Definition-of-Done-Stand
+
+`real-fixtures.test.ts` prüft die drei echten PDFs gegen Golden-Tageszahlen
+(14 / 14 / 4). Die PDFs enthalten echte Leitungsnamen im Fuss und sind daher
+**git-ignoriert** (revDSG / Kapitel 8) – committet sind nur die
+`*.expected.json`. Für die volle DoD (Kapitel 11: ≥ 4 PDFs) fehlt noch ein
+vierter, andersartiger Export (z. B. Hochformat oder Kurzlager).
