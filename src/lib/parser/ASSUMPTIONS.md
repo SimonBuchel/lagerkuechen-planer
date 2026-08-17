@@ -67,15 +67,25 @@ gelernten Anpassungen:
 - eCamp kennt teils eine **5. Kategorie «Höck» (rot)**, die nicht ES/LA/LP/LS
   ist → solche Blöcke bleiben ohne Kategorie und werden im Assistenten zugeteilt.
 
-Bekannte Restfehler an echten Daten (alle im Assistenten korrigierbar):
+Gegen Text-Bleed bei überlappenden Blöcken:
 
-- **Text-Bleed bei zeitlich überlappenden Parallel-Blöcken**: gelegentlich
-  wandern Zeichen des Nachbarblocks in den Titel («k LA: …», «rregeln LS: …»),
-  weil sich zwei gleichzeitige Aktivitäten horizontal überlappen.
-- **Ankerstunde** wird bei einem Theme per PUA dekodiert, bei einem anderen
-  fällt sie auf 07:00 zurück (mit Warnung) – die Zeiten stimmen trotzdem.
-- Vereinzelt verlorene öffnende `[`-Klammer → Verantwortlich-Feld nicht
-  abgetrennt; verwaiste Klammern werden aus dem Titel entfernt.
+- Jedes Wort wird **genau einem Block** zugewiesen (dem, der direkt darüber
+  beginnt), damit sich zwei gleichzeitige Blöcke nicht denselben Text teilen.
+- Taucht das eigene `XX:`-Präfix eines Blocks erst nach etwas Störtext auf
+  («rregeln LS: Ultimate»), wird der Störtext davor verworfen.
+- Verwaiste `[`/`]`-Klammern werden aus dem Titel entfernt.
+
+Verbleibende Restfehler an echten Daten (alle im Assistenten korrigierbar):
+
+- **«Höck» (rote 5. Kategorie)** wird mangels ES/LA/LP/LS auf die farblich
+  nächste der vier Kategorien gelegt (statt leer) – Kandidat für eine
+  explizite 5. Kategorie.
+- **Über-Kleben** bei an Wortgrenzen umgebrochenen Titeln
+  («Challenges»+«auf» → «Challengesauf»), Folge der naiven Umbruchregel.
+- Gelegentliche **Titel-Abschneidung** am Blockrand, wenn Text über die
+  Blockbreite hinausläuft.
+- **Ankerstunde** wird bei einem Theme per PUA dekodiert, beim anderen fällt
+  sie auf 07:00 zurück (mit Warnung) – die Zeiten stimmen trotzdem.
 
 ## Definition-of-Done-Stand
 

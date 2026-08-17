@@ -84,6 +84,13 @@ describe('stripCategoryPrefix', () => {
 		expect(r.code).toBeNull();
 		expect(r.rest).toBe('Wanderung');
 	});
+
+	it('drops leaked characters in front of the block prefix', () => {
+		// eCamp overlap bleed: a neighbouring block leaks "rregeln " before "LS:".
+		const r = stripCategoryPrefix('rregeln LS: Ultimate');
+		expect(r.code).toBe('LS');
+		expect(r.rest).toBe('Ultimate');
+	});
 });
 
 describe('reconstructBlockText', () => {

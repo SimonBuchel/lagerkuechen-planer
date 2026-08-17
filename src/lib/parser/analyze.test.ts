@@ -146,6 +146,30 @@ describe('analyzePages – error cases', () => {
 		expect(program.warnings.some((w) => w.includes('Unbekannte Blockfarbe'))).toBe(true);
 	});
 
+	it('assigns a shared word to exactly one of two overlapping blocks', () => {
+		const BLUE: RGB = { r: 0.565, g: 0.718, b: 0.894 };
+		const GREENC: RGB = { r: 0.302, g: 0.733, b: 0.322 };
+		const page: PageGeometry = {
+			width: 300,
+			height: 400,
+			rects: [
+				block(40, 240, 100, 140, BLUE), // block A
+				block(40, 240, 130, 170, GREENC) // block B, overlaps A vertically
+			],
+			words: [
+				word('07:00', 5, 100),
+				word('08:00', 5, 140),
+				word('Alpha', 50, 105),
+				word('Beta', 50, 150),
+				word('Shared', 50, 135) // sits inside both A and B
+			]
+		};
+		const program = analyzePages([page]);
+		const titles = program.days[0].blocks.map((b) => b.title);
+		const withShared = titles.filter((t) => t.includes('Shared'));
+		expect(withShared).toHaveLength(1); // never claimed by both blocks
+	});
+
 	it('warns on an empty page with no columns', () => {
 		const empty: PageGeometry = { width: 540, height: 800, rects: [], words: [] };
 		const program = analyzePages([empty]);

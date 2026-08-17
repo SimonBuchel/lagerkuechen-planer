@@ -90,9 +90,13 @@ export function analyzePage(
 	// 4. Establish the time axis from the left-hand labels.
 	const timeAxis = buildTimeAxis(page, columns, opts, warnings);
 
-	// 5. Build blocks per column.
+	// 5. Assign every word to at most one block, so overlapping (parallel) blocks
+	// never both claim the same text.
+	const blockWords = assignWordsToBlocks(activityRects, page.words);
+
+	// 6. Build blocks per column.
 	const days: ParsedDay[] = columns.map((col) =>
-		buildDay(col, activityRects, page.words, classifier, timeAxis, opts, warnings)
+		buildDay(col, activityRects, blockWords, page.words, classifier, timeAxis, opts, warnings)
 	);
 
 	return { day: days, timeAxis, legend: classifier.entries, warnings };
@@ -259,10 +263,49 @@ function clusterRows(words: Word[], tolerance = 3): { top: number; text: string 
 	return rows;
 }
 
+/**
+ * Assigns each word to at most one block. A word is placed in the block that
+ * starts nearest above it (text is anchored to the top of its block); this stops
+ * two vertically overlapping blocks from both claiming the same word.
+ */
+function assignWordsToBlocks(rects: FilledRect[], words: Word[]): Map<FilledRect, Word[]> {
+	const map = new Map<FilledRect, Word[]>();
+	for (const r of rects) map.set(r, []);
+
+	const area = (r: FilledRect) => (r.x1 - r.x0) * (r.bottom - r.top);
+	const centerTop = (r: FilledRect) => (r.top + r.bottom) / 2;
+
+	for (const w of words) {
+		const containers = rects.filter((r) => wordCenterInRect(w, r));
+		if (containers.length === 0) continue;
+
+		const above = containers.filter((r) => r.top <= w.top + 1);
+		let best: FilledRect;
+		if (above.length) {
+			best = above.reduce((a, b) => {
+				const da = w.top - a.top;
+				const db = w.top - b.top;
+				if (db !== da) return db < da ? b : a;
+				return area(b) < area(a) ? b : a;
+			});
+		} else {
+			best = containers.reduce((a, b) => {
+				const da = Math.abs(centerTop(a) - w.top);
+				const db = Math.abs(centerTop(b) - w.top);
+				if (db !== da) return db < da ? b : a;
+				return area(b) < area(a) ? b : a;
+			});
+		}
+		map.get(best)!.push(w);
+	}
+	return map;
+}
+
 /** Builds one day column: header date + its blocks. */
 function buildDay(
 	col: Column,
 	activityRects: FilledRect[],
+	blockWords: Map<FilledRect, Word[]>,
 	words: Word[],
 	classifier: ColorClassifier,
 	timeAxis: TimeAxisInfo,
@@ -284,12 +327,8 @@ function buildDay(
 
 	const colRects = activityRects.filter((r) => rectInColumn(r, col)).sort((a, b) => a.top - b.top);
 
-	const headerBottom = col.headerWords.length
-		? Math.max(...col.headerWords.map((w) => w.bottom))
-		: -Infinity;
-
 	const blocks: ParsedBlock[] = colRects.map((rect) => {
-		const inside = words.filter((w) => wordCenterInRect(w, rect) && w.top > headerBottom - 1);
+		const inside = blockWords.get(rect) ?? [];
 		const text = reconstructBlockText(inside);
 		let category: Category | null = classifier.classify(rect.fill);
 		if (category === null && text.prefixCode) {

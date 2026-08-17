@@ -132,12 +132,25 @@ export function stripCategoryPrefix(text: string): {
 	code: 'ES' | 'LA' | 'LP' | 'LS' | null;
 	rest: string;
 } {
-	const m = text.match(/^\s*(ES|LA|LP|LS)\s*:\s*/i);
-	if (!m) return { code: null, rest: text.trim() };
-	return {
-		code: m[1].toUpperCase() as 'ES' | 'LA' | 'LP' | 'LS',
-		rest: text.slice(m[0].length).trim()
-	};
+	// Normal case: the prefix is at the very start.
+	const start = text.match(/^\s*(ES|LA|LP|LS)\s*:\s*/i);
+	if (start) {
+		return {
+			code: start[1].toUpperCase() as 'ES' | 'LA' | 'LP' | 'LS',
+			rest: text.slice(start[0].length).trim()
+		};
+	}
+	// Bleed case: overlapping neighbouring blocks leak a few characters in front
+	// of this block's own prefix (e.g. "rregeln LS: Ultimate"). If a category
+	// prefix appears shortly after some junk, drop everything before it.
+	const mid = text.match(/^.{1,20}?\b(ES|LA|LP|LS)\s*:\s*/i);
+	if (mid) {
+		return {
+			code: mid[1].toUpperCase() as 'ES' | 'LA' | 'LP' | 'LS',
+			rest: text.slice(mid[0].length).trim()
+		};
+	}
+	return { code: null, rest: text.trim() };
 }
 
 /** Result of reconstructing all text inside one block. */
