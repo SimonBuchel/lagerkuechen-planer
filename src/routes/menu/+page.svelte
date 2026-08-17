@@ -6,19 +6,18 @@
 		MENU_SLOTS,
 		recipeById,
 		recipesForSlot,
-		SLOT_LABELS,
-		type MenuPlan
+		SLOT_LABELS
 	} from '$lib/menu/plan';
 	import { evaluateProgram, toProgramDays } from '$lib/rules/engine';
 	import { mealGapWarnings, varietyWarnings } from '$lib/rules/checks';
 	import type { MealSlot } from '$lib/rules/types';
 
 	const program = $derived(session.program);
+	const plan = $derived(session.plan);
 
-	let plan = $state<MenuPlan | null>(null);
 	$effect(() => {
-		if (program && (!plan || plan.days.length !== program.days.length)) {
-			plan = buildPlan(program);
+		if (program && (!session.plan || session.plan.days.length !== program.days.length)) {
+			session.plan = buildPlan(program);
 		}
 	});
 
@@ -58,10 +57,10 @@
 	}
 
 	function autofill() {
-		if (plan) plan = autoAssign(plan);
+		if (session.plan) session.plan = autoAssign(session.plan);
 	}
 	function clearAll() {
-		if (program) plan = buildPlan(program);
+		if (program) session.plan = buildPlan(program);
 	}
 
 	// Drag-and-drop of a meal between days.
@@ -112,6 +111,11 @@
 			<button
 				class="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
 				onclick={clearAll}>Zurücksetzen</button
+			>
+			<a
+				href="/mengen"
+				class="ml-auto inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+				>Mengen & Allergene →</a
 			>
 		</div>
 
