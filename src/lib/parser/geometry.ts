@@ -107,8 +107,10 @@ export function resolveAnchorHour(
 	topLabelText: string | undefined,
 	puaMap?: Map<string, string>
 ): { anchorHour: number; anchorSource: TimeAxisInfo['anchorSource'] } {
-	if (topLabelText && puaMap) {
-		const decoded = decodePuaTime(topLabelText, puaMap);
+	if (topLabelText) {
+		// Works both ways: a PUA map decodes subset-font glyphs, and an empty map
+		// still passes plain digits straight through for labels that extract cleanly.
+		const decoded = decodePuaTime(topLabelText, puaMap ?? new Map());
 		if (decoded !== null) return { anchorHour: decoded, anchorSource: 'decoded' };
 	}
 	return { anchorHour: DEFAULT_ANCHOR_HOUR, anchorSource: 'default' };
