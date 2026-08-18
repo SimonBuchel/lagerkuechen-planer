@@ -17,7 +17,7 @@ import {
 	shrinkageReserve,
 	totalHeadcount
 } from '../quantities/scale';
-import type { CookingRequirement, ScalingContext } from '../quantities/types';
+import type { CookingRequirement, Perishability, ScalingContext } from '../quantities/types';
 import type { Recipe } from './types';
 
 /** Household base size a recipe scale factor is measured against (Kapitel 5.2). */
@@ -29,6 +29,8 @@ export interface ScaledIngredient {
 	amount: number;
 	unit: 'g' | 'ml' | 'stk';
 	allergens: Allergen[];
+	/** Shelf-life class, so the shopping planner can schedule and store it. */
+	perishability: Perishability;
 }
 
 export interface ScaledRecipe {
@@ -61,7 +63,8 @@ export function scaleRecipe(recipe: Recipe, ctx: ScalingContext): ScaledRecipe {
 			name: ing.name,
 			amount: roundAmount(amount, ing.unit),
 			unit: ing.unit,
-			allergens: ing.allergens
+			allergens: ing.allergens,
+			perishability: ing.perishability
 		};
 	});
 

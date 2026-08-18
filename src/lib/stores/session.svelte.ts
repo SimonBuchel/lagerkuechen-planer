@@ -23,6 +23,10 @@ export interface CampContext {
 	activity: ActivityLevel;
 	equipment: KitchenEquipment;
 	allergies: AllergyProfile[];
+	/** Budget target in CHF per person and day (Kapitel 4 / 7.4). */
+	budgetPerPersonDay: number;
+	/** Buy in catering pack sizes. */
+	grossverbraucher: boolean;
 }
 
 function defaultContext(): CampContext {
@@ -35,7 +39,9 @@ function defaultContext(): CampContext {
 		diet: { vegetarisch: 3, vegan: 1, halal: 0, koscher: 0, laktosefrei: 1, glutenfrei: 1 },
 		activity: 'normal',
 		equipment: { gasbrenner: 4, kesselLiter: [30, 50], backofen: true, kuehlkapazitaetLiter: 200 },
-		allergies: []
+		allergies: [],
+		budgetPerPersonDay: 12,
+		grossverbraucher: false
 	};
 }
 

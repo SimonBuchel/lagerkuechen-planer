@@ -96,7 +96,14 @@
 </svelte:head>
 
 <div class="mx-auto max-w-6xl px-4 py-8">
-	<h1 class="text-2xl font-bold text-gray-900">Mengen & Allergene</h1>
+	<div class="flex flex-wrap items-center justify-between gap-2">
+		<h1 class="text-2xl font-bold text-gray-900">Mengen & Allergene</h1>
+		<a
+			href="/einkauf"
+			class="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+			>Einkauf & Budget →</a
+		>
+	</div>
 	<p class="mt-1 text-gray-600">
 		Skalierte Rezeptmengen zum Menüplan, mit Kesselbedarf und Allergen-Auswertung. Zahlen
 		aktualisieren sich sofort, wenn du unten den Lager-Kontext änderst.
@@ -300,7 +307,7 @@
 									<ul
 										class="mt-2 grid gap-x-6 gap-y-0.5 text-sm text-gray-700 sm:grid-cols-2 lg:grid-cols-3"
 									>
-										{#each m.scaled.ingredients as ing (ing.name)}
+										{#each m.scaled.ingredients as ing, ii (ii)}
 											<li class="flex justify-between gap-2">
 												<span>{ing.name}</span>
 												<span class="font-medium">{fmt(ing.amount, ing.unit)}</span>
