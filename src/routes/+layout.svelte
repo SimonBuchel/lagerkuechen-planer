@@ -26,23 +26,42 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-<header class="border-b border-gray-200 bg-white">
-	<nav class="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-4 py-2">
-		<a href="/" class="mr-3 font-bold text-gray-900">🍲 Lagerküche</a>
-		{#each links as l (l.href)}
+<div class="flex min-h-screen flex-col">
+	<header class="border-b border-gray-200 bg-white">
+		<nav class="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-4 py-2">
+			<a href="/" class="mr-3 font-bold text-gray-900">🍲 Lagerküche</a>
+			{#each links as l (l.href)}
+				<a
+					href={l.href}
+					aria-disabled={!hasProgram && l.href !== '/import'}
+					class="rounded px-3 py-1.5 text-sm font-medium {page.url.pathname === l.href
+						? 'bg-sky-100 text-sky-800'
+						: 'text-gray-600 hover:bg-gray-100'} {!hasProgram && l.href !== '/import'
+						? 'pointer-events-none opacity-40'
+						: ''}"
+				>
+					{l.label}
+				</a>
+			{/each}
 			<a
-				href={l.href}
-				aria-disabled={!hasProgram && l.href !== '/import'}
-				class="rounded px-3 py-1.5 text-sm font-medium {page.url.pathname === l.href
+				href="/konto"
+				class="ml-auto rounded px-3 py-1.5 text-sm font-medium {page.url.pathname === '/konto'
 					? 'bg-sky-100 text-sky-800'
-					: 'text-gray-600 hover:bg-gray-100'} {!hasProgram && l.href !== '/import'
-					? 'pointer-events-none opacity-40'
-					: ''}"
+					: 'text-gray-600 hover:bg-gray-100'}">Konto</a
 			>
-				{l.label}
-			</a>
-		{/each}
-	</nav>
-</header>
+		</nav>
+	</header>
 
-{@render children()}
+	<main class="flex-1">{@render children()}</main>
+
+	<footer class="border-t border-gray-200 bg-white">
+		<div
+			class="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3 text-xs text-gray-500"
+		>
+			<span>© Lagerküchen-Planer</span>
+			<a href="/datenschutz" class="hover:underline">Datenschutz</a>
+			<a href="/impressum" class="hover:underline">Impressum</a>
+			<a href="/agb" class="hover:underline">Nutzungsbedingungen</a>
+		</div>
+	</footer>
+</div>
