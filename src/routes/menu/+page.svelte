@@ -17,6 +17,8 @@
 	import { mealGapWarnings, varietyWarnings } from '$lib/rules/checks';
 	import { computeBudget } from '$lib/budget/budget';
 	import { mealDietStatus, vegiShare } from '$lib/menu/diet';
+	import { buildRecipeCatalog, type AiAssignment, type AiPlanInput } from '$lib/menu/ai';
+	import { page } from '$app/state';
 	import type { ActivityLevel } from '$lib/quantities/types';
 	import type { MealSlot, RuleHit } from '$lib/rules/types';
 
@@ -123,6 +125,61 @@
 		return a >= 1000 ? `${(a / 1000).toFixed(2)} l` : `${a} ml`;
 	}
 
+	const aiConfigured = $derived(page.data.aiConfigured === true);
+	let aiLoading = $state(false);
+	let aiError = $state<string | null>(null);
+
+	// Optional smarter planner (Phase 6): ask Claude for an assignment, then let
+	// the deterministic autoAssign fill any slot the model left empty.
+	async function smartPlan() {
+		if (!program) return;
+		aiLoading = true;
+		aiError = null;
+		try {
+			const body: AiPlanInput = {
+				days: program.days.map((d, i) => ({
+					index: i,
+					date: d.date,
+					label: `Tag ${i + 1}`,
+					activities: (ruleHits[i] ?? []).map((h) => h.label)
+				})),
+				heads,
+				vegiPercent: Math.round(vegi * 100),
+				dietSummary: `${ctx.diet.vegetarisch} vegetarisch, ${ctx.diet.vegan} vegan, ${ctx.diet.laktosefrei} laktosefrei, ${ctx.diet.glutenfrei} glutenfrei, ${ctx.diet.halal} halal, ${ctx.diet.koscher} koscher`,
+				allergies: ctx.allergies.map((a) => ({
+					pseudonym: a.pseudonym,
+					severity: a.severity,
+					allergens: a.allergens
+				})),
+				budgetTarget: ctx.budgetPerPersonDay,
+				catalog: buildRecipeCatalog()
+			};
+			const res = await fetch('/api/ai-plan', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			const data = await res.json();
+			if (!res.ok) {
+				aiError = data.error ?? 'KI-Planung fehlgeschlagen.';
+				return;
+			}
+			const assignment = data.assignment as AiAssignment;
+			const base = buildPlan(program);
+			assignment.days.forEach((slots, i) => {
+				if (!base.days[i]) return;
+				for (const [slot, id] of Object.entries(slots)) {
+					if (id) base.days[i].slots[slot as MealSlot] = id;
+				}
+			});
+			session.plan = autoAssign(base, { vegiShare: vegi });
+		} catch {
+			aiError = 'Netzwerkfehler – bitte erneut versuchen.';
+		} finally {
+			aiLoading = false;
+		}
+	}
+
 	function regenerate() {
 		if (program) session.plan = autoAssign(buildPlan(program), { vegiShare: vegi });
 	}
@@ -190,6 +247,15 @@
 					class="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium hover:bg-white/20"
 					>Lager anpassen</a
 				>
+				{#if aiConfigured}
+					<button
+						class="rounded-lg bg-amber-400 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-amber-300 disabled:opacity-50"
+						onclick={smartPlan}
+						disabled={aiLoading}
+						title="Menüplan von Claude nach Programm, Ernährung und Allergien optimieren"
+						>{aiLoading ? 'KI plant …' : '✨ Smart-Plan (KI)'}</button
+					>
+				{/if}
 				<button
 					class="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium hover:bg-white/20"
 					onclick={regenerate}>Neu vorschlagen</button
@@ -206,9 +272,18 @@
 			</div>
 		</div>
 
+		{#if aiError}
+			<div class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+				{aiError}
+			</div>
+		{/if}
+
 		<p class="mt-3 text-sm text-gray-500">
 			Mengen gelten <strong>pro Person</strong> und sind auf {heads} Personen hochgerechnet. Jede Zuteilung
 			ist ein Vorschlag – per Auswahl oder Drag-and-Drop änderbar.
+			{#if aiConfigured}
+				<span class="text-gray-400">Mit «✨ Smart-Plan (KI)» optimiert Claude die Auswahl.</span>
+			{/if}
 		</p>
 
 		{#if variety.length}

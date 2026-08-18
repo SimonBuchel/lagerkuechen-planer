@@ -127,77 +127,87 @@
 </svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-8">
-	<h1 class="text-2xl font-bold text-gray-900">Einkauf & Budget</h1>
-
 	{#if !plan}
-		<div class="mt-6 rounded-lg border border-gray-200 bg-white p-6 text-gray-700">
-			Kein Menüplan vorhanden. <a class="text-sky-700 underline" href="/menu">Zum Menüplan</a>.
+		<h1 class="text-2xl font-bold text-gray-900">Einkauf & Budget</h1>
+		<div class="mt-6 rounded-xl border border-gray-200 bg-white p-6 text-gray-700">
+			Kein Menüplan vorhanden.
+			<a class="font-medium text-sky-700 hover:underline" href="/menu">Zum Menüplan →</a>
 		</div>
 	{:else}
-		<!-- Controls + budget -->
-		<div class="mt-4 flex flex-wrap items-center gap-4 rounded-lg bg-gray-50 p-4 text-sm">
-			<label class="flex items-center gap-2">
-				<input type="checkbox" bind:checked={ctx.grossverbraucher} /> Grossverbraucher-Gebinde
-			</label>
-			<label class="flex items-center gap-2">
-				Budget CHF/Person/Tag
-				<input
-					type="number"
-					min="0"
-					step="0.5"
-					class="w-20 rounded border-gray-300"
-					bind:value={ctx.budgetPerPersonDay}
-				/>
-			</label>
-			<div class="ml-auto flex gap-2">
+		<!-- Summary bar (matches Lager/Menü) -->
+		<div class="flex flex-wrap items-center gap-5 rounded-xl bg-gray-900 p-4 text-white">
+			{#if budget}
+				<div>
+					<div class="text-xl font-bold">CHF {budget.plannedTotal.toFixed(2)}</div>
+					<div class="text-[10px] text-gray-400 uppercase">Einkauf total geplant</div>
+				</div>
+				<div>
+					<div
+						class="text-xl font-bold {budget.plannedPerPersonDay <= budget.targetPerPersonDay
+							? 'text-emerald-400'
+							: 'text-orange-300'}"
+					>
+						CHF {budget.plannedPerPersonDay.toFixed(2)}
+					</div>
+					<div class="text-[10px] text-gray-400 uppercase">
+						pro Pers./Tag · Ziel {budget.targetPerPersonDay.toFixed(2)}
+					</div>
+				</div>
+				<div>
+					<div class="text-xl font-bold">{budget.personDays}</div>
+					<div class="text-[10px] text-gray-400 uppercase">Personentage</div>
+				</div>
+			{/if}
+			<div class="ml-auto flex flex-wrap gap-2">
+				<a
+					href="/menu"
+					class="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium hover:bg-white/20">Menüplan</a
+				>
 				<button
-					class="rounded bg-gray-100 px-3 py-1 font-medium hover:bg-gray-200"
+					class="rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium hover:bg-white/20"
 					onclick={() => download(asCsv(), 'einkaufsliste.csv', 'text/csv')}>CSV</button
 				>
 				<button
-					class="rounded bg-emerald-600 px-3 py-1 font-medium text-white hover:bg-emerald-700"
+					class="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold hover:bg-emerald-600"
 					onclick={copyWhatsApp}>{copied ? 'Kopiert ✓' : 'WhatsApp-Text'}</button
 				>
 			</div>
 		</div>
 
-		{#if budget}
-			<div
-				class="mt-4 flex flex-wrap items-center gap-6 rounded-lg border border-gray-200 bg-white p-4"
-			>
-				<div>
-					<div class="text-xs text-gray-500 uppercase">Geplant total</div>
-					<div class="text-xl font-bold text-gray-900">CHF {budget.plannedTotal.toFixed(2)}</div>
-				</div>
-				<div>
-					<div class="text-xs text-gray-500 uppercase">Ziel total</div>
-					<div class="text-xl font-bold text-gray-900">CHF {budget.targetTotal.toFixed(2)}</div>
-				</div>
-				<div>
-					<div class="text-xs text-gray-500 uppercase">Pro Person/Tag</div>
-					<div
-						class="text-xl font-bold {budget.plannedPerPersonDay <= budget.targetPerPersonDay
-							? 'text-emerald-700'
-							: 'text-red-700'}"
-					>
-						CHF {budget.plannedPerPersonDay.toFixed(2)} / {budget.targetPerPersonDay.toFixed(2)}
-					</div>
-				</div>
-				<div class="text-xs text-gray-400">
-					{budget.personDays} Personentage · Preise sind Schätzwerte
-				</div>
-			</div>
-		{/if}
+		<p class="mt-3 text-sm text-gray-500">
+			Nach <strong>Einkaufstag</strong> und Ladenkategorie gruppiert, in Gebinden gerundet – zum
+			Abhaken im Laden (offline). Preise sind Schätzwerte.
+		</p>
+
+		<!-- Options -->
+		<div
+			class="mt-4 flex flex-wrap items-center gap-5 rounded-xl border border-gray-200 bg-white p-4 text-sm"
+		>
+			<label class="flex items-center gap-2 text-gray-700">
+				<input type="checkbox" class="rounded" bind:checked={ctx.grossverbraucher} />
+				Grossverbraucher-Gebinde
+			</label>
+			<label class="flex items-center gap-2 text-gray-700">
+				Budget CHF/Person/Tag
+				<input
+					type="number"
+					min="0"
+					step="0.5"
+					class="w-20 rounded-lg border-gray-300"
+					bind:value={ctx.budgetPerPersonDay}
+				/>
+			</label>
+		</div>
 
 		<!-- Shopping runs -->
 		{#if shopping}
-			<div class="mt-6 space-y-6">
+			<div class="mt-6 space-y-5">
 				{#each shopping.runs as run (run.id)}
-					<section class="rounded-lg border border-gray-200 bg-white">
+					<section class="overflow-hidden rounded-xl border border-gray-200 bg-white">
 						<header
-							class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 p-3"
+							class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5"
 						>
-							<h2 class="font-semibold text-gray-900">{run.label}</h2>
+							<h2 class="font-semibold text-gray-900">🛒 {run.label}</h2>
 							{#if run.fridgeLiters > 0}
 								<span class="text-xs text-gray-400"
 									>Frischvolumen ~{run.fridgeLiters.toFixed(0)} l</span
@@ -205,34 +215,33 @@
 							{/if}
 						</header>
 						{#if run.fridgeWarning}
-							<div class="border-b border-gray-50 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+							<div class="border-b border-gray-50 bg-amber-50 px-4 py-2 text-xs text-amber-800">
 								⚠️ {run.fridgeWarning}
 							</div>
 						{/if}
 						{#each run.byCategory as cat (cat.category)}
-							<div class="border-b border-gray-50 p-3">
+							<div class="border-b border-gray-50 px-4 py-3 last:border-b-0">
 								<div class="text-xs font-semibold text-gray-500 uppercase">
 									{STORE_LABELS[cat.category]}
 								</div>
-								<ul class="mt-1 space-y-1">
+								<ul class="mt-1.5 space-y-1">
 									{#each cat.items as item (item.name)}
 										{@const key = `${run.id}|${item.name}`}
-										<li class="flex items-center gap-2 text-sm">
+										<li class="flex items-center gap-2 rounded-lg px-1 py-0.5 text-sm hover:bg-gray-50">
 											<input
 												type="checkbox"
+												class="rounded"
 												checked={checked.has(key)}
 												onchange={() => toggle(key)}
 											/>
-											<span
-												class={checked.has(key) ? 'text-gray-400 line-through' : 'text-gray-800'}
-											>
+											<span class={checked.has(key) ? 'text-gray-400 line-through' : 'text-gray-800'}>
 												<strong>{item.packs} × {item.packLabel}</strong>
 												{item.name}
 											</span>
 											<span class="ml-auto text-xs text-gray-400">
 												Bedarf {fmt(item.needed, item.unit)} → {fmt(item.purchased, item.unit)}
-												{#if item.overage > 0.15}<span class="text-amber-600">
-														(+{Math.round(item.overage * 100)}%)</span
+												{#if item.overage > 0.15}<span class="text-amber-600"
+														>(+{Math.round(item.overage * 100)}%)</span
 													>{/if}
 											</span>
 										</li>
@@ -244,10 +253,10 @@
 				{/each}
 			</div>
 
-			<div class="mt-6">
+			<div class="mt-6 flex justify-end">
 				<a
 					href="/dossier"
-					class="inline-flex items-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+					class="inline-flex items-center rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"
 					>Küchendossier drucken →</a
 				>
 			</div>

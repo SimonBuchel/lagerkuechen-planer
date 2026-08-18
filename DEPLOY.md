@@ -37,6 +37,12 @@ vercel --prod # Produktions-Deployment
   Es wird nichts gespeichert.
 - **Später Konten/Zahlung aktivieren:** die nötigen Env-Variablen stehen in
   `src/lib/server/env.ts`; Datenbank-Setup in `db/README.md`.
+- **KI-Menüplaner (optional):** Setze die Env-Variable `ANTHROPIC_API_KEY` (in
+  Vercel unter *Settings → Environment Variables*). Dann erscheint im Menüplan
+  der Knopf «✨ Smart-Plan (KI)», der die Auswahl von Claude nach Programm,
+  Ernährung und Allergien optimieren lässt. Ohne Schlüssel bleibt der gratis,
+  deterministische Regel-Planer aktiv – die App funktioniert vollständig ohne KI.
+  Der Schlüssel liegt nur serverseitig und wird nie an den Browser gegeben.
 - **Anderes Hosting:** Für einen eigenen Server statt Vercel `@sveltejs/adapter-node`
   verwenden; für Cloudflare Pages `@sveltejs/adapter-cloudflare` (dort ist die
   serverseitige PDF-Verarbeitung aber nicht garantiert).

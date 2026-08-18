@@ -24,7 +24,8 @@ export const config = {
 	stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET ?? '',
 	stripePriceId: env.STRIPE_PRICE_ID ?? '',
 	databaseUrl: env.DATABASE_URL ?? '',
-	baseUrl: env.PUBLIC_BASE_URL ?? 'http://localhost:5173'
+	baseUrl: env.PUBLIC_BASE_URL ?? 'http://localhost:5173',
+	anthropicApiKey: env.ANTHROPIC_API_KEY ?? ''
 };
 
 export const isConfigured = {
@@ -32,5 +33,6 @@ export const isConfigured = {
 	mail: config.resendApiKey.length > 0 && config.mailFrom.length > 0,
 	payments: config.stripeSecretKey.length > 0 && config.stripePriceId.length > 0,
 	webhooks: config.stripeWebhookSecret.length > 0,
-	database: config.databaseUrl.length > 0
+	database: config.databaseUrl.length > 0,
+	ai: config.anthropicApiKey.length > 0
 };

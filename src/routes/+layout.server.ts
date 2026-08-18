@@ -6,5 +6,6 @@ import { isConfigured } from '$lib/server/env';
  * account/login entry point on a free deployment where auth isn't set up.
  */
 export const load: LayoutServerLoad = () => ({
-	authConfigured: isConfigured.auth
+	authConfigured: isConfigured.auth,
+	aiConfigured: isConfigured.ai
 });
