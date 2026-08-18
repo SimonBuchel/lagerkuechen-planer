@@ -182,9 +182,9 @@
 					</div>
 				{/if}
 				<a
-					href="/menu"
+					href="/lager"
 					class="inline-flex items-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-					>Weiter zum Menüplan →</a
+					>Weiter: Lager einrichten →</a
 				>
 			</div>
 		</div>
@@ -314,9 +314,9 @@
 				onclick={downloadJson}>Als JSON exportieren</button
 			>
 			<a
-				href="/menu"
+				href="/lager"
 				class="ml-auto inline-flex items-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-				>Zum Menüplan →</a
+				>Weiter: Lager einrichten →</a
 			>
 		</div>
 

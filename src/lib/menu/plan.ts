@@ -8,6 +8,7 @@ import type { ParsedProgram } from '../parser/types';
 import { recipeById, recipesForSlot } from '../recipes/registry';
 import type { Recipe } from '../recipes/types';
 import { VARIETY_WINDOW_DAYS } from '../rules/checks';
+import { sortRecipesByDiet } from './diet';
 import type { MealSlot } from '../rules/types';
 
 /** Meal slots shown in the planner, in day order. */
@@ -65,12 +66,13 @@ export { recipeById, recipesForSlot };
  * and avoiding the same dish within the {@link VARIETY_WINDOW_DAYS}-day window.
  * Existing (user-set) assignments are kept.
  */
-export function autoAssign(plan: MenuPlan): MenuPlan {
+export function autoAssign(plan: MenuPlan, opts: { vegiShare?: number } = {}): MenuPlan {
 	const slotsToFill: MealSlot[] = ['zmorge', 'zmittag', 'znacht', 'zvieri', 'dessert'];
 	const days = plan.days.map((d) => ({ date: d.date, slots: { ...d.slots } }));
 
 	for (const slot of slotsToFill) {
-		const options = recipesForSlot(slot);
+		// Order candidates so diet-appropriate dishes come first (user feedback).
+		const options = sortRecipesByDiet(recipesForSlot(slot), opts.vegiShare ?? 0);
 		if (options.length === 0) continue;
 		let cursor = 0;
 		for (let i = 0; i < days.length; i++) {

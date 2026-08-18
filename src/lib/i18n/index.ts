@@ -25,6 +25,7 @@ const de: Dict = {
 	'nav.dossier': 'Dossier',
 	'nav.rezepte': 'Rezepte',
 	'nav.konto': 'Konto',
+	'nav.lager': 'Lager',
 	'landing.subtitle':
 		'Aus deinem eCamp-Programm wird ein passender Menüplan: Wandertag heisst Lunchpaket, Besuchstag heisst Kuchen für die dreifache Menge, Anreisetag heisst – die Küche steht noch nicht.',
 	'landing.cta': 'Programm importieren →',
@@ -48,6 +49,7 @@ const fr: Dict = {
 	'nav.dossier': 'Dossier',
 	'nav.rezepte': 'Recettes',
 	'nav.konto': 'Compte',
+	'nav.lager': 'Camp',
 	'landing.subtitle':
 		'Ton programme eCamp devient un plan de menus adapté : jour de marche = pique-nique, jour de visite = gâteau en triple quantité, jour d’arrivée = la cuisine n’est pas encore prête.',
 	'landing.cta': 'Importer le programme →',
@@ -72,6 +74,7 @@ const it: Dict = {
 	'nav.dossier': 'Dossier',
 	'nav.rezepte': 'Ricette',
 	'nav.konto': 'Account',
+	'nav.lager': 'Campo',
 	'landing.subtitle':
 		'Dal tuo programma eCamp nasce un piano dei menù su misura: giorno di escursione = pranzo al sacco, giorno di visita = torta in tripla quantità, giorno di arrivo = la cucina non è ancora pronta.',
 	'landing.cta': 'Importa il programma →',

@@ -24,8 +24,8 @@
 
 	const links = [
 		{ href: '/import', key: 'nav.import' },
+		{ href: '/lager', key: 'nav.lager' },
 		{ href: '/menu', key: 'nav.menu' },
-		{ href: '/mengen', key: 'nav.mengen' },
 		{ href: '/einkauf', key: 'nav.einkauf' },
 		{ href: '/dossier', key: 'nav.dossier' }
 	];
