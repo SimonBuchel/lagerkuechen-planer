@@ -42,6 +42,9 @@
 				<a
 					href={l.href}
 					aria-disabled={!hasProgram && l.href !== '/import'}
+					title={!hasProgram && l.href !== '/import'
+						? 'Zuerst ein Programm importieren'
+						: undefined}
 					class="rounded px-3 py-1.5 text-sm font-medium {page.url.pathname === l.href
 						? 'bg-sky-100 text-sky-800'
 						: 'text-gray-600 hover:bg-gray-100'} {!hasProgram && l.href !== '/import'

@@ -23,6 +23,8 @@
 
 	const ruleHits = $derived(program ? evaluateProgram(toProgramDays(program.days)) : []);
 
+	const allEmpty = $derived(!!plan && plan.days.every((d) => MENU_SLOTS.every((s) => !d.slots[s])));
+
 	const variety = $derived.by(() => {
 		if (!plan) return [];
 		const perDay = plan.days.map((d) =>
@@ -118,6 +120,13 @@
 				>Mengen & Allergene →</a
 			>
 		</div>
+
+		{#if allEmpty}
+			<div class="mt-4 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+				👉 Noch nichts geplant. Klicke <strong>«Vorschlag generieren»</strong> für einen automatischen
+				Menüplan – oder wähle unten pro Mahlzeit selbst ein Gericht.
+			</div>
+		{/if}
 
 		{#if variety.length}
 			<ul

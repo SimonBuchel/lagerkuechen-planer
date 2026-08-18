@@ -6,11 +6,13 @@
 		importRecipes,
 		validateCustomRecipe
 	} from '$lib/recipes/library';
-	import { getCustomRecipes } from '$lib/recipes/registry';
 	import { loadCustomRecipes, saveCustomRecipes } from '$lib/recipes/storage';
 	import { SLOT_LABELS } from '$lib/menu/plan';
 	import { ALLERGENS } from '$lib/allergens/data';
 	import type { MealSlot, Recipe } from '$lib/recipes/types';
+	import { DIET_CLASS_LABELS, PERISHABILITY_LABELS } from '$lib/labels';
+	import type { Allergen } from '$lib/allergens/types';
+	import { baseQuantity } from '$lib/quantities/data';
 
 	const SLOTS: MealSlot[] = ['zmorge', 'zmittag', 'zvieri', 'znacht', 'dessert', 'snack'];
 	const UNITS = ['g', 'ml', 'stk'] as const;
@@ -26,6 +28,24 @@
 	$effect(() => {
 		custom = loadCustomRecipes();
 	});
+
+	// Make a recipe fully editable: resolve built-in base quantities to explicit
+	// per-person amounts so the amount field is visible and editable.
+	function flatten(r: Recipe): Recipe {
+		const c = structuredClone($state.snapshot(r)) as Recipe;
+		c.ingredients = c.ingredients.map((ing) => {
+			if (ing.baseKey) {
+				const b = baseQuantity(ing.baseKey);
+				if (b) {
+					ing.amountPerPerson = b.amount;
+					ing.unit = b.unit;
+					delete ing.baseKey;
+				}
+			}
+			return ing;
+		});
+		return c;
+	}
 
 	function startNew() {
 		editing = blankRecipe();
@@ -59,8 +79,28 @@
 		editing?.ingredients.splice(i, 1);
 	}
 
+	function slugify(name: string): string {
+		const base =
+			name
+				.toLowerCase()
+				.normalize('NFD')
+				.replace(/[̀-ͯ]/g, '')
+				.replace(/[^a-z0-9]+/g, '-')
+				.replace(/^-+|-+$/g, '') || 'rezept';
+		const taken = new Set(custom.map((r) => r.id));
+		let id = base,
+			n = 2;
+		while (taken.has(id)) id = `${base}-${n++}`;
+		return id;
+	}
+	function toggleIngredientAllergen(ing: { allergens: Allergen[] }, key: Allergen) {
+		if (ing.allergens.includes(key)) ing.allergens = ing.allergens.filter((a) => a !== key);
+		else ing.allergens = [...ing.allergens, key];
+	}
+
 	function save() {
 		if (!editing) return;
+		if (!editing.id.trim()) editing.id = slugify(editing.name);
 		editing.steps = stepsText
 			.split('\n')
 			.map((s) => s.trim())
@@ -136,16 +176,11 @@
 	{#if editing}
 		<section class="mt-6 rounded-lg border border-sky-200 bg-sky-50/40 p-4">
 			<h2 class="font-semibold text-gray-900">Rezept bearbeiten</h2>
-			<div class="mt-3 grid gap-2 sm:grid-cols-3">
-				<label class="text-sm"
-					>id (a–z, 0–9, -)<input
-						class="mt-0.5 w-full rounded border-gray-300 text-sm"
-						bind:value={editing.id}
-					/></label
-				>
+			<div class="mt-3 grid gap-2 sm:grid-cols-2">
 				<label class="text-sm"
 					>Name<input
 						class="mt-0.5 w-full rounded border-gray-300 text-sm"
+						placeholder="z. B. Grosis Kartoffelgratin"
 						bind:value={editing.name}
 					/></label
 				>
@@ -160,39 +195,53 @@
 			<h3 class="mt-4 text-sm font-semibold text-gray-700">Zutaten</h3>
 			<div class="mt-1 space-y-2">
 				{#each editing.ingredients as ing, i (i)}
-					<div
-						class="grid items-center gap-1 rounded border border-gray-200 bg-white p-2 sm:grid-cols-6"
-					>
-						<input
-							class="rounded border-gray-300 text-sm sm:col-span-2"
-							placeholder="Name"
-							bind:value={ing.name}
-						/>
-						<input
-							type="number"
-							class="rounded border-gray-300 text-sm"
-							placeholder="Menge/Person"
-							bind:value={ing.amountPerPerson}
-						/>
-						<select class="rounded border-gray-300 text-sm" bind:value={ing.unit}
-							>{#each UNITS as u (u)}<option value={u}>{u}</option>{/each}</select
-						>
-						<select class="rounded border-gray-300 text-sm" bind:value={ing.dietClass}
-							>{#each DIET as d (d)}<option value={d}>{d}</option>{/each}</select
-						>
-						<select class="rounded border-gray-300 text-sm" bind:value={ing.perishability}
-							>{#each PERISH as p (p)}<option value={p}>{p}</option>{/each}</select
-						>
-						<select
-							multiple
-							class="rounded border-gray-300 text-xs sm:col-span-5"
-							bind:value={ing.allergens}
-						>
-							{#each ALLERGENS as a (a.key)}<option value={a.key}>{a.label}</option>{/each}
-						</select>
-						<button class="text-xs text-red-600 hover:underline" onclick={() => removeIngredient(i)}
-							>entfernen</button
-						>
+					<div class="rounded border border-gray-200 bg-white p-2">
+						<div class="flex flex-wrap items-center gap-2">
+							<input
+								class="min-w-40 flex-1 rounded border-gray-300 text-sm"
+								placeholder="Zutat"
+								bind:value={ing.name}
+							/>
+							<input
+								type="number"
+								class="w-28 rounded border-gray-300 text-sm"
+								placeholder="Menge/Person"
+								bind:value={ing.amountPerPerson}
+							/>
+							<select class="w-16 rounded border-gray-300 text-sm" bind:value={ing.unit}
+								>{#each UNITS as u (u)}<option value={u}>{u}</option>{/each}</select
+							>
+							<select
+								class="rounded border-gray-300 text-sm"
+								title="Für die Diät-Skalierung (Vegi/Vegan)"
+								bind:value={ing.dietClass}
+								>{#each DIET as d (d)}<option value={d}>{DIET_CLASS_LABELS[d]}</option
+									>{/each}</select
+							>
+							<select
+								class="rounded border-gray-300 text-sm"
+								title="Für Einkaufstag & Kühlung"
+								bind:value={ing.perishability}
+								>{#each PERISH as p (p)}<option value={p}>{PERISHABILITY_LABELS[p]}</option
+									>{/each}</select
+							>
+							<button
+								class="ml-auto text-xs text-red-600 hover:underline"
+								onclick={() => removeIngredient(i)}>entfernen</button
+							>
+						</div>
+						<div class="mt-1.5 flex flex-wrap items-center gap-1">
+							<span class="text-xs text-gray-400">Allergene:</span>
+							{#each ALLERGENS as a (a.key)}
+								<button
+									type="button"
+									onclick={() => toggleIngredientAllergen(ing, a.key)}
+									class="rounded-full px-2 py-0.5 text-[11px] {ing.allergens.includes(a.key)
+										? 'bg-amber-500 text-white'
+										: 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">{a.label}</button
+								>
+							{/each}
+						</div>
 					</div>
 				{/each}
 				<button

@@ -7,6 +7,7 @@
 	import { ALLERGENS } from '$lib/allergens/data';
 	import { evaluateProgram, toProgramDays } from '$lib/rules/engine';
 	import type { ActivityLevel, AgeBand, Role } from '$lib/quantities/types';
+	import { ROLE_LABELS, ACTIVITY_LABELS } from '$lib/labels';
 	import type { RuleHit } from '$lib/rules/types';
 	import type { Allergen, Severity } from '$lib/allergens/types';
 
@@ -119,7 +120,7 @@
 				{#each ctx.groups as g, i (i)}
 					<div class="mt-2 flex flex-wrap items-center gap-2">
 						<select class="rounded border-gray-300 text-sm" bind:value={g.role}>
-							{#each ROLES as r (r)}<option value={r}>{r}</option>{/each}
+							{#each ROLES as r (r)}<option value={r}>{ROLE_LABELS[r]}</option>{/each}
 						</select>
 						<select class="rounded border-gray-300 text-sm" bind:value={g.ageBand}>
 							{#each AGE_BANDS as a (a)}<option value={a}>{a}</option>{/each}
@@ -284,7 +285,7 @@
 						<h2 class="font-semibold text-gray-900">
 							Tag {day.index + 1}{day.date ? ` · ${day.date}` : ''}
 						</h2>
-						<span class="text-xs text-gray-400">Aktivität: {day.activity}</span>
+						<span class="text-xs text-gray-400">Aktivität: {ACTIVITY_LABELS[day.activity]}</span>
 					</header>
 
 					{#if day.meals.length === 0}

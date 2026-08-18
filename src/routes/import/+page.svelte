@@ -174,12 +174,19 @@
 				<div class="text-2xl font-bold text-gray-900">{specialCount}</div>
 				<div class="text-xs text-gray-500 uppercase">Sonderaktivitäten</div>
 			</div>
-			{#if program.camp}
-				<div class="ml-auto text-right text-xs text-gray-400">
-					<div>Camp: {program.camp}</div>
-					{#if program.periods.length}<div>Periode: {program.periods.join(', ')}</div>{/if}
-				</div>
-			{/if}
+			<div class="ml-auto flex items-center gap-3">
+				{#if program.camp}
+					<div class="text-right text-xs text-gray-400">
+						<div>Camp: {program.camp}</div>
+						{#if program.periods.length}<div>Periode: {program.periods.join(', ')}</div>{/if}
+					</div>
+				{/if}
+				<a
+					href="/menu"
+					class="inline-flex items-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+					>Weiter zum Menüplan →</a
+				>
+			</div>
 		</div>
 
 		<!-- Time anchor confirmation -->
