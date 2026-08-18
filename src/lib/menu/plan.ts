@@ -5,7 +5,7 @@
  */
 
 import type { ParsedProgram } from '../parser/types';
-import { RECIPES } from '../recipes/data';
+import { recipeById, recipesForSlot } from '../recipes/registry';
 import type { Recipe } from '../recipes/types';
 import { VARIETY_WINDOW_DAYS } from '../rules/checks';
 import type { MealSlot } from '../rules/types';
@@ -57,16 +57,8 @@ export function buildPlan(program: ParsedProgram): MenuPlan {
 	return { days: program.days.map((d) => ({ date: d.date, slots: emptySlots() })) };
 }
 
-const RECIPE_BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
-
-export function recipeById(id: string | null): Recipe | undefined {
-	return id ? RECIPE_BY_ID.get(id) : undefined;
-}
-
-/** Recipes available for a given slot. */
-export function recipesForSlot(slot: MealSlot): Recipe[] {
-	return RECIPES.filter((r) => r.slot === slot);
-}
+// Recipe lookups come from the registry (built-in + user library).
+export { recipeById, recipesForSlot };
 
 /**
  * Fills empty slots with a suggestion, rotating through the available recipes

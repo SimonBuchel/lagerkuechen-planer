@@ -4,6 +4,7 @@
 	import { dev } from '$app/environment';
 	import { page } from '$app/state';
 	import { session } from '$lib/stores/session.svelte';
+	import { loadCustomRecipes } from '$lib/recipes/storage';
 
 	let { children } = $props();
 
@@ -12,6 +13,11 @@
 		if (!dev && 'serviceWorker' in navigator) {
 			navigator.serviceWorker.register('/service-worker.js').catch(() => {});
 		}
+	});
+
+	// Hydrate the user's recipe library into the registry (Phase 6).
+	$effect(() => {
+		loadCustomRecipes();
 	});
 
 	const links = [
@@ -44,8 +50,14 @@
 				</a>
 			{/each}
 			<a
+				href="/rezepte"
+				class="ml-auto rounded px-3 py-1.5 text-sm font-medium {page.url.pathname === '/rezepte'
+					? 'bg-sky-100 text-sky-800'
+					: 'text-gray-600 hover:bg-gray-100'}">Rezepte</a
+			>
+			<a
 				href="/konto"
-				class="ml-auto rounded px-3 py-1.5 text-sm font-medium {page.url.pathname === '/konto'
+				class="rounded px-3 py-1.5 text-sm font-medium {page.url.pathname === '/konto'
 					? 'bg-sky-100 text-sky-800'
 					: 'text-gray-600 hover:bg-gray-100'}">Konto</a
 			>
