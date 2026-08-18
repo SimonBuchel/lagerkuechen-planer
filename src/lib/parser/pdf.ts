@@ -12,6 +12,24 @@
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { FilledRect, PageGeometry, RGB, Word } from './types';
 
+// pdf.js v4 relies on Promise.withResolvers, which only exists on Node 22+.
+// Vercel/older runtimes on Node 20 would otherwise throw during getDocument,
+// making every upload look like "not an eCamp export". Polyfill it defensively.
+{
+	const P = Promise as unknown as { withResolvers?: () => unknown };
+	if (typeof P.withResolvers !== 'function') {
+		P.withResolvers = function <T>() {
+			let resolve!: (value: T | PromiseLike<T>) => void;
+			let reject!: (reason?: unknown) => void;
+			const promise = new Promise<T>((res, rej) => {
+				resolve = res;
+				reject = rej;
+			});
+			return { promise, resolve, reject };
+		};
+	}
+}
+
 const OPS = pdfjs.OPS;
 
 /** 2-D affine matrix in pdf.js order [a, b, c, d, e, f]. */

@@ -14,7 +14,7 @@ export default defineConfig({
 			},
 
 			// Hosting auf Vercel, Region Frankfurt (EU) – Kapitel 9: EU/CH erzwingen.
-			adapter: adapter({ runtime: 'nodejs20.x', regions: ['fra1'] }),
+			adapter: adapter({ runtime: 'nodejs22.x', regions: ['fra1'] }),
 
 			// Don't auto-register the service worker in dev (it caches modules and
 			// causes stale HMR). We register it manually in production only.
