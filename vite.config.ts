@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
-import adapter from '@sveltejs/adapter-auto';
+import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
@@ -13,10 +13,8 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-			adapter: adapter(),
+			// Hosting auf Vercel, Region Frankfurt (EU) – Kapitel 9: EU/CH erzwingen.
+			adapter: adapter({ runtime: 'nodejs20.x', regions: ['fra1'] }),
 
 			// Don't auto-register the service worker in dev (it caches modules and
 			// causes stale HMR). We register it manually in production only.

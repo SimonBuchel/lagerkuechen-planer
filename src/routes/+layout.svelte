@@ -8,7 +8,7 @@
 	import { LOCALES } from '$lib/i18n';
 	import { locale, setLocale, tr } from '$lib/i18n/locale.svelte';
 
-	let { children } = $props();
+	let { children, data } = $props();
 
 	// Register the offline service worker in production only (Kapitel 7: PWA).
 	$effect(() => {
@@ -57,12 +57,14 @@
 					? 'bg-sky-100 text-sky-800'
 					: 'text-gray-600 hover:bg-gray-100'}">{tr('nav.rezepte')}</a
 			>
-			<a
-				href="/konto"
-				class="rounded px-3 py-1.5 text-sm font-medium {page.url.pathname === '/konto'
-					? 'bg-sky-100 text-sky-800'
-					: 'text-gray-600 hover:bg-gray-100'}">{tr('nav.konto')}</a
-			>
+			{#if data.authConfigured}
+				<a
+					href="/konto"
+					class="rounded px-3 py-1.5 text-sm font-medium {page.url.pathname === '/konto'
+						? 'bg-sky-100 text-sky-800'
+						: 'text-gray-600 hover:bg-gray-100'}">{tr('nav.konto')}</a
+				>
+			{/if}
 			<span class="ml-2 flex items-center gap-0.5">
 				{#each LOCALES as l (l.code)}
 					<button
