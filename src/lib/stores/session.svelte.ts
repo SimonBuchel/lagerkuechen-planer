@@ -7,6 +7,7 @@
 
 import type { ParsedProgram } from '$lib/parser/types';
 import type { MenuPlan } from '$lib/menu/plan';
+import type { CampType, Season } from '$lib/menu/diet';
 import type { AllergyProfile } from '$lib/allergens/types';
 import type {
 	ActivityLevel,
@@ -27,6 +28,10 @@ export interface CampContext {
 	budgetPerPersonDay: number;
 	/** Buy in catering pack sizes. */
 	grossverbraucher: boolean;
+	/** Camp season — drives warm/cold dish choice. */
+	season: Season;
+	/** House vs. tent camp — drives oven/complexity choices. */
+	campType: CampType;
 }
 
 function defaultContext(): CampContext {
@@ -41,7 +46,9 @@ function defaultContext(): CampContext {
 		equipment: { gasbrenner: 4, kesselLiter: [30, 50], backofen: true, kuehlkapazitaetLiter: 200 },
 		allergies: [],
 		budgetPerPersonDay: 12,
-		grossverbraucher: false
+		grossverbraucher: false,
+		season: 'sommer',
+		campType: 'zelt'
 	};
 }
 

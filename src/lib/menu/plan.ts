@@ -8,8 +8,13 @@ import type { ParsedProgram } from '../parser/types';
 import { recipeById, recipesForSlot } from '../recipes/registry';
 import type { Recipe } from '../recipes/types';
 import { VARIETY_WINDOW_DAYS } from '../rules/checks';
-import { sortRecipesByDiet } from './diet';
+import { sortRecipesSmart, type CampType, type Season } from './diet';
 import type { MealSlot } from '../rules/types';
+
+/** Meals every day gets. */
+export const CORE_SLOTS: readonly MealSlot[] = ['zmorge', 'zmittag', 'znacht'];
+/** Meals only on selected days (not every single day). */
+export const OPTIONAL_SLOTS: readonly MealSlot[] = ['zvieri', 'dessert', 'snack'];
 
 /** Meal slots shown in the planner, in day order. */
 export const MENU_SLOTS: readonly MealSlot[] = [
@@ -61,29 +66,57 @@ export function buildPlan(program: ParsedProgram): MenuPlan {
 // Recipe lookups come from the registry (built-in + user library).
 export { recipeById, recipesForSlot };
 
+/** Options steering the auto-planner (user feedback: it must be specific & smart). */
+export interface AutoAssignOptions {
+	/** Fraction of the group eating vegetarian/vegan (0..1). */
+	vegiShare?: number;
+	season?: Season;
+	campType?: CampType;
+	/** Day indices that get a dessert (default: every other day). */
+	dessertDays?: Set<number>;
+	/** Day indices that get an afternoon snack (default: none). */
+	zvieriDays?: Set<number>;
+}
+
 /**
  * Fills empty slots with a suggestion, rotating through the available recipes
  * and avoiding the same dish within the {@link VARIETY_WINDOW_DAYS}-day window.
  * Existing (user-set) assignments are kept.
+ *
+ * Core meals (Zmorge/Zmittag/Znacht) are planned every day; Zvieri and Dessert
+ * only on the days the caller marks — no dessert or afternoon snack on every
+ * single day. Ordering is diet-, season- and camp-type-aware.
  */
-export function autoAssign(plan: MenuPlan, opts: { vegiShare?: number } = {}): MenuPlan {
-	const slotsToFill: MealSlot[] = ['zmorge', 'zmittag', 'znacht', 'zvieri', 'dessert'];
+export function autoAssign(plan: MenuPlan, opts: AutoAssignOptions = {}): MenuPlan {
 	const days = plan.days.map((d) => ({ date: d.date, slots: { ...d.slots } }));
+	const dessertDays = opts.dessertDays ?? new Set(days.map((_, i) => i).filter((i) => i % 2 === 0));
+	const zvieriDays = opts.zvieriDays ?? new Set<number>();
 
+	const wants = (slot: MealSlot, day: number): boolean => {
+		if ((CORE_SLOTS as readonly MealSlot[]).includes(slot)) return true;
+		if (slot === 'dessert') return dessertDays.has(day);
+		if (slot === 'zvieri') return zvieriDays.has(day);
+		return false; // snack stays manual
+	};
+
+	const slotsToFill: MealSlot[] = ['zmorge', 'zmittag', 'znacht', 'zvieri', 'dessert'];
 	for (const slot of slotsToFill) {
-		// Order candidates so diet-appropriate dishes come first (user feedback).
-		const options = sortRecipesByDiet(recipesForSlot(slot), opts.vegiShare ?? 0);
+		const options = sortRecipesSmart(recipesForSlot(slot), {
+			share: opts.vegiShare ?? 0,
+			season: opts.season,
+			campType: opts.campType
+		});
 		if (options.length === 0) continue;
 		let cursor = 0;
 		for (let i = 0; i < days.length; i++) {
 			if (days[i].slots[slot]) continue; // keep user choice
+			if (!wants(slot, i)) continue; // this day doesn't get this optional meal
 			const recent = new Set(
 				days
 					.slice(Math.max(0, i - VARIETY_WINDOW_DAYS + 1), i)
 					.map((d) => d.slots[slot])
 					.filter((x): x is string => x !== null)
 			);
-			// Pick the next option not used recently; fall back to plain rotation.
 			let chosen = options[cursor % options.length];
 			for (let k = 0; k < options.length; k++) {
 				const cand = options[(cursor + k) % options.length];

@@ -43,9 +43,15 @@ export interface AiPlanInput {
 	days: AiDay[];
 	heads: number;
 	vegiPercent: number;
+	/** Portions that need a meat-free variant (vegetarians + vegans). */
+	vegiPortions?: number;
 	dietSummary: string;
 	allergies: { pseudonym: string; severity: string; allergens: string[] }[];
 	budgetTarget: number;
+	/** Camp season label, e.g. "Sommer". */
+	season?: string;
+	/** Camp type label, e.g. "Zeltlager". */
+	campType?: string;
 	catalog: CatalogEntry[];
 }
 
@@ -144,6 +150,9 @@ export function buildAiMessages(input: AiPlanInput): { system: string; user: str
 			lager: {
 				personen: input.heads,
 				vegiAnteilProzent: input.vegiPercent,
+				vegiPortionen: input.vegiPortions,
+				saison: input.season,
+				lagerart: input.campType,
 				ernaehrungsformen: input.dietSummary,
 				allergien: input.allergies,
 				zielbudgetChfProPersonTag: input.budgetTarget

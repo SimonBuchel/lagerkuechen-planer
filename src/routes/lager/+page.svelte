@@ -3,12 +3,19 @@
 	import { ALLERGENS } from '$lib/allergens/data';
 	import { ROLE_LABELS } from '$lib/labels';
 	import { totalHeadcount } from '$lib/quantities/scale';
-	import { vegiShare } from '$lib/menu/diet';
+	import {
+		SEASON_LABELS,
+		CAMP_TYPE_LABELS,
+		type Season,
+		type CampType
+	} from '$lib/menu/diet';
 	import type { AgeBand, Role } from '$lib/quantities/types';
 	import type { Allergen, Severity } from '$lib/allergens/types';
 
 	const ROLES: Role[] = ['teilnehmende', 'leitende', 'kuechenteam', 'besuch'];
 	const AGE_BANDS: AgeBand[] = ['6-10', '11-14', '15-17', '18+'];
+	const SEASONS: Season[] = ['fruehling', 'sommer', 'herbst', 'winter'];
+	const CAMP_TYPES: CampType[] = ['zelt', 'haus'];
 	const SEVERITIES: { key: Severity; label: string }[] = [
 		{ key: 'unvertraeglichkeit', label: 'Unverträglichkeit' },
 		{ key: 'allergie', label: 'Allergie' },
@@ -17,7 +24,6 @@
 
 	const ctx = session.context;
 	const heads = $derived(totalHeadcount(ctx.groups));
-	const vegi = $derived(vegiShare(ctx.diet.vegetarisch, ctx.diet.vegan, heads));
 
 	function addGroup() {
 		ctx.groups.push({ role: 'teilnehmende', ageBand: '11-14', count: 0 });
@@ -74,8 +80,12 @@
 			<div class="text-xs text-gray-400 uppercase">Personen</div>
 		</div>
 		<div>
-			<div class="text-2xl font-bold">{Math.round(vegi * 100)}%</div>
-			<div class="text-xs text-gray-400 uppercase">Vegetarisch/Vegan</div>
+			<div class="text-2xl font-bold">{ctx.diet.vegetarisch}</div>
+			<div class="text-xs text-gray-400 uppercase">Vegetarisch</div>
+		</div>
+		<div>
+			<div class="text-2xl font-bold">{ctx.diet.vegan}</div>
+			<div class="text-xs text-gray-400 uppercase">Vegan</div>
 		</div>
 		<div>
 			<div class="text-2xl font-bold">{ctx.allergies.length}</div>
@@ -88,6 +98,28 @@
 	</div>
 
 	<div class="mt-6 grid gap-5 lg:grid-cols-2">
+		<!-- Rahmen -->
+		<section class="rounded-xl border border-gray-200 bg-white p-5 lg:col-span-2">
+			<h2 class="font-semibold text-gray-900">🗓️ Rahmen</h2>
+			<p class="mt-0.5 text-xs text-gray-500">
+				Saison und Lagerart bestimmen mit, welche Menüs optimal sind (warm/kalt, Ofen ja/nein).
+			</p>
+			<div class="mt-3 grid grid-cols-2 gap-3 sm:max-w-md">
+				<label class="text-sm text-gray-600"
+					>Jahreszeit
+					<select class="mt-0.5 w-full rounded-lg border-gray-300 text-sm" bind:value={ctx.season}>
+						{#each SEASONS as s (s)}<option value={s}>{SEASON_LABELS[s]}</option>{/each}
+					</select>
+				</label>
+				<label class="text-sm text-gray-600"
+					>Lagerart
+					<select class="mt-0.5 w-full rounded-lg border-gray-300 text-sm" bind:value={ctx.campType}>
+						{#each CAMP_TYPES as c (c)}<option value={c}>{CAMP_TYPE_LABELS[c]}</option>{/each}
+					</select>
+				</label>
+			</div>
+		</section>
+
 		<!-- Personen -->
 		<section class="rounded-xl border border-gray-200 bg-white p-5">
 			<h2 class="font-semibold text-gray-900">👥 Personen</h2>

@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { recipeById } from '../recipes/registry';
 import type { Recipe } from '../recipes/types';
-import { mealDietStatus, recipeDietProfile, sortRecipesByDiet, vegiShare } from './diet';
+import {
+	mealDietStatus,
+	recipeDietProfile,
+	recipeIsCold,
+	sortRecipesByDiet,
+	sortRecipesSmart,
+	vegiPortions,
+	vegiShare
+} from './diet';
 
 const get = (id: string) => recipeById(id) as Recipe;
 
@@ -32,6 +40,28 @@ describe('sortRecipesByDiet', () => {
 	it('keeps original order when there are no vegetarians', () => {
 		const list = [get('hackbraten'), get('gemuesecurry-reis')];
 		expect(sortRecipesByDiet(list, 0).map((r) => r.id)).toEqual(list.map((r) => r.id));
+	});
+});
+
+describe('vegiPortions', () => {
+	it('sums vegetarians and vegans', () => {
+		expect(vegiPortions(3, 1)).toBe(4);
+		expect(vegiPortions(0, 0)).toBe(0);
+	});
+});
+
+describe('recipeIsCold', () => {
+	it('recognises a cold pasta salad by name and a warm curry as not cold', () => {
+		expect(recipeIsCold(get('pastasalat'))).toBe(true);
+		expect(recipeIsCold(get('gemuesecurry-reis'))).toBe(false);
+	});
+});
+
+describe('sortRecipesSmart', () => {
+	it('keeps meat-only last for a vegetarian majority', () => {
+		const list = [get('hackbraten'), get('gemuesecurry-reis'), get('spaghetti-bolognese')];
+		const sorted = sortRecipesSmart(list, { share: 0.7 });
+		expect(recipeDietProfile(sorted[sorted.length - 1])).toBe('meat-only');
 	});
 });
 

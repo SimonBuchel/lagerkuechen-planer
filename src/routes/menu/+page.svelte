@@ -3,10 +3,12 @@
 	import {
 		autoAssign,
 		buildPlan,
+		CORE_SLOTS,
 		MENU_SLOTS,
 		recipeById,
 		recipesForSlot,
-		SLOT_LABELS
+		SLOT_LABELS,
+		type AutoAssignOptions
 	} from '$lib/menu/plan';
 	import { scaleRecipe } from '$lib/recipes/scale';
 	import { checkEquipment } from '$lib/quantities/kessel';
@@ -16,7 +18,13 @@
 	import { evaluateProgram, toProgramDays } from '$lib/rules/engine';
 	import { mealGapWarnings, varietyWarnings } from '$lib/rules/checks';
 	import { computeBudget } from '$lib/budget/budget';
-	import { mealDietStatus, vegiShare } from '$lib/menu/diet';
+	import {
+		CAMP_TYPE_LABELS,
+		SEASON_LABELS,
+		mealDietStatus,
+		sortRecipesSmart,
+		vegiShare
+	} from '$lib/menu/diet';
 	import { buildRecipeCatalog, type AiAssignment, type AiPlanInput } from '$lib/menu/ai';
 	import { page } from '$app/state';
 	import type { ActivityLevel } from '$lib/quantities/types';
@@ -28,21 +36,58 @@
 
 	const heads = $derived(totalHeadcount(ctx.groups));
 	const vegi = $derived(vegiShare(ctx.diet.vegetarisch, ctx.diet.vegan, heads));
-
-	// Build a diet-aware suggested plan automatically the first time (user feedback:
-	// the plan should already adapt to the group, not start empty).
-	$effect(() => {
-		if (program && (!session.plan || session.plan.days.length !== program.days.length)) {
-			session.plan = autoAssign(buildPlan(program), { vegiShare: vegi });
-		}
-	});
+	/** Portions that need a meat-free variant (vegetarians + vegans). */
+	const vegiCount = $derived(ctx.diet.vegetarisch + ctx.diet.vegan);
 
 	const ruleHits = $derived(program ? evaluateProgram(toProgramDays(program.days)) : []);
+
+	// Which days get the optional meals — not every single day (user feedback):
+	//  - Zvieri only on active days (hike, camp build, day trip, swimming);
+	//  - Dessert every other day plus festive days (visitors, party, farewell).
+	function planOptions(): AutoAssignOptions {
+		const idx = (program?.days ?? []).map((_, i) => i);
+		const zvieriDays = new Set(
+			idx.filter((i) =>
+				(ruleHits[i] ?? []).some((h) =>
+					['wanderung', 'lagerbau', 'ganztagesausflug', 'baden'].includes(h.ruleId)
+				)
+			)
+		);
+		const dessertDays = new Set(
+			idx.filter(
+				(i) =>
+					i % 2 === 0 ||
+					(ruleHits[i] ?? []).some((h) =>
+						['besuchstag', 'feier', 'party', 'abreise'].includes(h.ruleId)
+					)
+			)
+		);
+		return { vegiShare: vegi, season: ctx.season, campType: ctx.campType, dessertDays, zvieriDays };
+	}
+
+	// Build a smart suggested plan automatically the first time (user feedback:
+	// the plan should already adapt to group, season, camp type and programme).
+	$effect(() => {
+		if (program && (!session.plan || session.plan.days.length !== program.days.length)) {
+			session.plan = autoAssign(buildPlan(program), planOptions());
+		}
+	});
 
 	function activityForDay(hits: RuleHit[]): ActivityLevel {
 		if (hits.some((h) => h.ruleId === 'wanderung')) return 'sport';
 		if (hits.some((h) => h.ruleId === 'lagerbau')) return 'bau';
 		return ctx.activity;
+	}
+
+	// Add an optional meal (Zvieri/Dessert/Snack) to a single day on demand.
+	function addSlot(dayIndex: number, slot: MealSlot) {
+		if (!session.plan) return;
+		const best = sortRecipesSmart(recipesForSlot(slot), {
+			share: vegi,
+			season: ctx.season,
+			campType: ctx.campType
+		})[0];
+		if (best) session.plan.days[dayIndex].slots[slot] = best.id;
 	}
 
 	const budget = $derived.by(() =>
@@ -96,7 +141,8 @@
 						)
 					: null;
 				const equip = scaled ? checkEquipment(scaled.cooking, ctx.equipment) : null;
-				return { slot, rid, recipe, scaled, diet, allergens, equip, effects };
+				const core = (CORE_SLOTS as readonly MealSlot[]).includes(slot);
+				return { slot, rid, recipe, scaled, diet, allergens, equip, effects, core };
 			});
 			const notes = (ruleHits[i] ?? []).flatMap((h) =>
 				h.effects.filter((e) => !e.slot).map((e) => ({ reason: e.reason, rule: h.label }))
@@ -145,6 +191,9 @@
 				})),
 				heads,
 				vegiPercent: Math.round(vegi * 100),
+				vegiPortions: vegiCount,
+				season: SEASON_LABELS[ctx.season],
+				campType: CAMP_TYPE_LABELS[ctx.campType],
 				dietSummary: `${ctx.diet.vegetarisch} vegetarisch, ${ctx.diet.vegan} vegan, ${ctx.diet.laktosefrei} laktosefrei, ${ctx.diet.glutenfrei} glutenfrei, ${ctx.diet.halal} halal, ${ctx.diet.koscher} koscher`,
 				allergies: ctx.allergies.map((a) => ({
 					pseudonym: a.pseudonym,
@@ -172,7 +221,7 @@
 					if (id) base.days[i].slots[slot as MealSlot] = id;
 				}
 			});
-			session.plan = autoAssign(base, { vegiShare: vegi });
+			session.plan = autoAssign(base, planOptions());
 		} catch {
 			aiError = 'Netzwerkfehler – bitte erneut versuchen.';
 		} finally {
@@ -181,7 +230,7 @@
 	}
 
 	function regenerate() {
-		if (program) session.plan = autoAssign(buildPlan(program), { vegiShare: vegi });
+		if (program) session.plan = autoAssign(buildPlan(program), planOptions());
 	}
 	function clearAll() {
 		if (program) session.plan = buildPlan(program);
@@ -224,8 +273,12 @@
 				<div class="text-[10px] text-gray-400 uppercase">Personen</div>
 			</div>
 			<div>
-				<div class="text-xl font-bold">{Math.round(vegi * 100)}%</div>
-				<div class="text-[10px] text-gray-400 uppercase">Vegi</div>
+				<div class="text-xl font-bold">{ctx.diet.vegetarisch}</div>
+				<div class="text-[10px] text-gray-400 uppercase">Vegetarisch</div>
+			</div>
+			<div>
+				<div class="text-xl font-bold">{ctx.diet.vegan}</div>
+				<div class="text-[10px] text-gray-400 uppercase">Vegan</div>
 			</div>
 			{#if budget}
 				<div>
@@ -331,6 +384,7 @@
 
 					<div class="grid gap-px bg-gray-100 sm:grid-cols-2 lg:grid-cols-3">
 						{#each day.meals as m (m.slot)}
+							{#if m.core || m.recipe}
 							<div
 								class="bg-white p-3"
 								role="group"
@@ -377,6 +431,13 @@
 											🥗 {m.diet.hint}
 										</div>
 									{/if}
+									{#if vegiCount > 0 && (m.diet.profile === 'meat-with-vegi' || m.diet.profile === 'meat-only')}
+										<div class="mt-1 rounded bg-emerald-50 px-2 py-1 text-[11px] text-emerald-800">
+											🥗 Vegi-Variante: {vegiCount} Portionen{m.diet.profile === 'meat-only'
+												? ' – Alternative nötig!'
+												: ' separat zubereiten'}
+										</div>
+									{/if}
 									{#if m.allergens.affected.length}
 										<div class="mt-1 text-[11px] text-amber-700">
 											Nicht essbar für: {m.allergens.affected.join(', ')}
@@ -416,8 +477,20 @@
 									</details>
 								{/if}
 							</div>
+							{/if}
 						{/each}
 					</div>
+					{#if day.meals.some((m) => !m.core && !m.recipe)}
+						<div class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 py-2.5">
+							<span class="text-xs text-gray-400">Ergänzen:</span>
+							{#each day.meals.filter((m) => !m.core && !m.recipe) as m (m.slot)}
+								<button
+									class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
+									onclick={() => addSlot(day.index, m.slot)}>+ {SLOT_LABELS[m.slot]}</button
+								>
+							{/each}
+						</div>
+					{/if}
 				</section>
 			{/each}
 		</div>

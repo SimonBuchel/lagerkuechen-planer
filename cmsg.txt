@@ -1,0 +1,24 @@
+Smarter deterministic planner, season/camp-type context, cleaner shopping & landing
+
+Menu planning (user feedback: must be specific & smart, not basic):
+- New camp context: season (Frühling/Sommer/Herbst/Winter) and camp type
+  (Zeltlager/Hauslager), entered on the Lager page.
+- autoAssign now plans core meals daily but Zvieri only on active days
+  (hike/build/day-trip/swim) and Dessert every other day + festive days —
+  no dessert or afternoon snack forced on every single day.
+- Recipe ranking is diet-, season- and camp-type-aware (warm dishes in
+  autumn/winter, no oven dishes at tent camps); meat-only dishes sink hard
+  whenever anyone eats vegetarian.
+- Each meat dish shows the required vegi-variant portion count
+  (vegetarians + vegans) so the vegetarians are never stranded.
+- Vegetarian and vegan shown as separate portion counts, not a combined %.
+- Optional meals can be added per day on demand.
+
+Shopping: drop the overage percentages/purchased tail — show only the buy
+quantity and demand.
+
+Landing page: proper hero + feature cards.
+
+AI planner input carries season/camp-type/vegi-portions too (still optional).
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

@@ -64,6 +64,70 @@ export function sortRecipesByDiet(recipes: Recipe[], share: number): Recipe[] {
 	return [...recipes].sort((a, b) => rank(a) - rank(b));
 }
 
+/** Camp season — drives warm/cold dish preference. */
+export type Season = 'fruehling' | 'sommer' | 'herbst' | 'winter';
+
+/** Camp type — house camp (oven ok) vs. tent camp (keep it simple). */
+export type CampType = 'haus' | 'zelt';
+
+export const SEASON_LABELS: Record<Season, string> = {
+	fruehling: 'Frühling',
+	sommer: 'Sommer',
+	herbst: 'Herbst',
+	winter: 'Winter'
+};
+
+export const CAMP_TYPE_LABELS: Record<CampType, string> = {
+	haus: 'Hauslager',
+	zelt: 'Zeltlager'
+};
+
+/** Heuristic: is this dish served cold (salad, cold platter)? */
+export function recipeIsCold(recipe: Recipe): boolean {
+	const t = recipe.name.toLowerCase();
+	if (/\bkalt\b|salat|müesli|muesli|bircher|z['’]?nacht kalt/.test(t)) return true;
+	// A dish that needs no cooking station and no oven is effectively a cold plate.
+	return recipe.cooking.kochstellen === 0 && !recipe.cooking.brauchtOfen;
+}
+
+/** How many portions need the meat-free variant of a dish. */
+export function vegiPortions(vegetarisch: number, vegan: number): number {
+	return Math.max(0, vegetarisch) + Math.max(0, vegan);
+}
+
+/**
+ * Smart ordering used by the auto-planner: diet fit first, then season and camp
+ * type. A meat dish with no vegi variant is pushed far down whenever anyone eats
+ * vegetarian, so the plan never strands the vegetarians.
+ */
+export function sortRecipesSmart(
+	recipes: Recipe[],
+	opts: { share?: number; season?: Season; campType?: CampType } = {}
+): Recipe[] {
+	const share = opts.share ?? 0;
+	const score = (r: Recipe): number => {
+		const p = recipeDietProfile(r);
+		// Diet weight dominates (×100).
+		let s: number;
+		if (share <= 0) s = 0;
+		else if (share >= MAJORITY_VEGI)
+			s = { vegan: 0, vegetarian: 0, 'meat-with-vegi': 2, 'meat-only': 6 }[p];
+		else s = { 'meat-with-vegi': 0, vegetarian: 0, vegan: 1, 'meat-only': 5 }[p];
+		s *= 100;
+
+		// Season: prefer warm dishes in autumn/winter, allow cold in summer.
+		const cold = recipeIsCold(r);
+		if ((opts.season === 'herbst' || opts.season === 'winter') && cold) s += 30;
+		if (opts.season === 'sommer' && !cold) s += 8;
+
+		// Tent camps: an oven is impractical.
+		if (opts.campType === 'zelt' && r.cooking.brauchtOfen) s += 20;
+
+		return s;
+	};
+	return [...recipes].sort((a, b) => score(a) - score(b));
+}
+
 /** Per-meal diet status shown to the user. */
 export interface MealDietStatus {
 	profile: DietProfile;

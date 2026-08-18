@@ -238,12 +238,7 @@
 												<strong>{item.packs} × {item.packLabel}</strong>
 												{item.name}
 											</span>
-											<span class="ml-auto text-xs text-gray-400">
-												Bedarf {fmt(item.needed, item.unit)} → {fmt(item.purchased, item.unit)}
-												{#if item.overage > 0.15}<span class="text-amber-600"
-														>(+{Math.round(item.overage * 100)}%)</span
-													>{/if}
-											</span>
+											<span class="ml-auto text-xs text-gray-400">Bedarf {fmt(item.needed, item.unit)}</span>
 										</li>
 									{/each}
 								</ul>
