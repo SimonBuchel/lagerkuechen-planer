@@ -52,11 +52,17 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch (err) {
 		// A failed import must be logged for the operator (Kapitel 3.4).
 		console.error('[parse] eCamp import failed:', err);
+		// TEMP DEBUG: surface the real cause so the deployed failure can be diagnosed.
+		const detail =
+			err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+		const stackTop = err instanceof Error && err.stack ? err.stack.split('\n').slice(0, 4).join(' | ') : '';
 		return json(
 			{
 				error:
 					'Die Datei konnte nicht als eCamp-Export gelesen werden. ' +
-					'Bitte prüfe, ob es ein «Picasso»-Druck aus eCamp ist – oder erfasse die Tage manuell.'
+					'Bitte prüfe, ob es ein «Picasso»-Druck aus eCamp ist – oder erfasse die Tage manuell.',
+				detail,
+				stackTop
 			},
 			{ status: 422 }
 		);
