@@ -23,6 +23,15 @@
 		);
 	});
 
+	const totalItems = $derived(
+		shopping
+			? shopping.runs.reduce(
+					(n, r) => n + r.byCategory.reduce((m, c) => m + c.items.length, 0),
+					0
+				)
+			: 0
+	);
+
 	const budget = $derived.by(() => {
 		if (!plan) return null;
 		return computeBudget(plan, {
@@ -55,6 +64,15 @@
 			/* ignore */
 		}
 	}
+
+	const checkedCount = $derived.by(() => {
+		if (!shopping) return 0;
+		let n = 0;
+		for (const run of shopping.runs)
+			for (const cat of run.byCategory)
+				for (const item of cat.items) if (checked.has(`${run.id}|${item.name}`)) n++;
+		return n;
+	});
 
 	function fmt(amount: number, unit: 'g' | 'ml' | 'stk'): string {
 		if (unit === 'stk') return `${amount} Stk`;
@@ -158,6 +176,12 @@
 					<div class="text-[10px] text-gray-400 uppercase">Personentage</div>
 				</div>
 			{/if}
+			<div>
+				<div class="text-xl font-bold">
+					{checkedCount}<span class="text-sm text-gray-400">/{totalItems}</span>
+				</div>
+				<div class="text-[10px] text-gray-400 uppercase">abgehakt</div>
+			</div>
 			<div class="ml-auto flex flex-wrap gap-2">
 				<a
 					href="/menu"
@@ -208,11 +232,10 @@
 							class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5"
 						>
 							<h2 class="font-semibold text-gray-900">🛒 {run.label}</h2>
-							{#if run.fridgeLiters > 0}
-								<span class="text-xs text-gray-400"
-									>Frischvolumen ~{run.fridgeLiters.toFixed(0)} l</span
-								>
-							{/if}
+							<span class="text-xs text-gray-400">
+								{run.byCategory.reduce((n, c) => n + c.items.length, 0)} Positionen{#if run.fridgeLiters > 0}
+									· Frischvolumen ~{run.fridgeLiters.toFixed(0)} l{/if}
+							</span>
 						</header>
 						{#if run.fridgeWarning}
 							<div class="border-b border-gray-50 bg-amber-50 px-4 py-2 text-xs text-amber-800">

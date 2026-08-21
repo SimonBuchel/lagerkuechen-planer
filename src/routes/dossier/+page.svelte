@@ -7,10 +7,23 @@
 	import { computeBudget } from '$lib/budget/budget';
 	import { cookingWindow, wakeUpTime } from '$lib/quantities/timing';
 	import { allergenLabel } from '$lib/allergens/data';
+	import { totalHeadcount } from '$lib/quantities/scale';
+	import {
+		CAMP_TYPE_LABELS,
+		SEASON_LABELS,
+		recipeDietProfile,
+		vegiPortions
+	} from '$lib/menu/diet';
 
 	const plan = $derived(session.plan);
 	const program = $derived(session.program);
 	const ctx = session.context;
+
+	const heads = $derived(totalHeadcount(ctx.groups));
+	const vegiCount = $derived(vegiPortions(ctx.diet.vegetarisch, ctx.diet.vegan));
+	const largestKettle = $derived(
+		ctx.equipment.kesselLiter.length ? Math.max(...ctx.equipment.kesselLiter) : 0
+	);
 
 	function fmt(amount: number, unit: 'g' | 'ml' | 'stk'): string {
 		if (unit === 'stk') return `${amount} Stk`;
@@ -30,12 +43,11 @@
 					diet: ctx.diet,
 					isFirstDay: i === 0
 				});
-				// Reverse schedule for warm meals with a known ES time.
 				const esBlock = program?.days[i]?.blocks.find(
 					(b) => b.category === 'ES' && b.start && b.title.toLowerCase().includes(slot)
 				);
 				const mealTime = esBlock?.start ?? null;
-				const prep = recipe.cooking.ruestBasisMin + 45; // rough wall-clock lead
+				const prep = recipe.cooking.ruestBasisMin + 45;
 				const schedule = mealTime
 					? {
 							meal: mealTime,
@@ -43,7 +55,9 @@
 							wake: wakeUpTime(mealTime, prep, 15).time
 						}
 					: null;
-				return { slot, recipe, scaled, schedule };
+				const profile = recipeDietProfile(recipe);
+				const needsVegi = (profile === 'meat-with-vegi' || profile === 'meat-only') && vegiCount > 0;
+				return { slot, recipe, scaled, schedule, needsVegi };
 			}).filter((m) => m !== null);
 			return { index: i, date: d.date, meals };
 		});
@@ -81,20 +95,36 @@
 
 <div class="dossier">
 	<div class="no-print controls">
-		<button onclick={() => window.print()}>Drucken / als PDF speichern</button>
+		<button onclick={() => window.print()}>🖨 Drucken / als PDF speichern</button>
 		<a href="/einkauf">← zurück</a>
-		<span>Tipp: im Druckdialog «Hintergrundgrafiken» aus, Ränder normal.</span>
+		<span>Tipp: Ränder «normal», Hintergrundgrafiken nicht nötig – Farben sind druckfest gesetzt.</span>
 	</div>
 
 	{#if !plan}
-		<p>Kein Menüplan vorhanden. <a href="/menu">Zum Menüplan</a>.</p>
+		<p class="empty">
+			Kein Menüplan vorhanden. <a href="/menu">Zum Menüplan →</a>
+		</p>
 	{:else}
 		<!-- 1. Deckblatt -->
-		<section class="sheet">
-			<h1>Küchendossier</h1>
-			<p class="lead">
-				{program?.camp ? `Camp ${program.camp}` : 'Lager'} · {plan.days.length} Tage
-			</p>
+		<section class="sheet cover">
+			<div class="cover-head">
+				<div class="brand">🍲 Lagerküche</div>
+				<h1>Küchendossier</h1>
+				<p class="lead">{program?.camp ? `Camp ${program.camp}` : 'Lager'} · {plan.days.length} Tage</p>
+			</div>
+
+			<div class="meta">
+				<div><span class="k">Personen</span><span class="v">{heads}</span></div>
+				<div><span class="k">Vegetarisch</span><span class="v">{ctx.diet.vegetarisch}</span></div>
+				<div><span class="k">Vegan</span><span class="v">{ctx.diet.vegan}</span></div>
+				<div><span class="k">Allergien</span><span class="v">{ctx.allergies.length}</span></div>
+				<div><span class="k">Saison</span><span class="v">{SEASON_LABELS[ctx.season]}</span></div>
+				<div><span class="k">Lagerart</span><span class="v">{CAMP_TYPE_LABELS[ctx.campType]}</span></div>
+				<div><span class="k">Ofen</span><span class="v">{ctx.equipment.backofen ? 'ja' : 'nein'}</span></div>
+				<div><span class="k">Grösster Kessel</span><span class="v">{largestKettle} l</span></div>
+				<div><span class="k">Budget/Pers./Tag</span><span class="v">CHF {ctx.budgetPerPersonDay}</span></div>
+			</div>
+
 			<table class="notfall">
 				<tbody>
 					<tr><th>Sanitätsnotruf</th><td>144</td></tr>
@@ -111,17 +141,16 @@
 
 		<!-- 2. Allergie-Blatt -->
 		<section class="sheet">
-			<h2>Allergie-Blatt (aufhängen)</h2>
+			<h2>Allergie-Blatt <span class="sub">– gut sichtbar aufhängen</span></h2>
 			{#if ctx.allergies.length === 0}
 				<p>Keine Allergien erfasst.</p>
 			{:else}
 				<table class="big grid">
 					<thead>
-						<tr
-							><th>Pseudonym</th><th>Schweregrad</th><th>Allergene</th><th
-								>Klarname (handschriftlich)</th
-							></tr
-						>
+						<tr>
+							<th>Pseudonym</th><th>Schweregrad</th><th>Allergene</th>
+							<th>Klarname (handschriftlich)</th>
+						</tr>
 					</thead>
 					<tbody>
 						{#each ctx.allergies as a (a.pseudonym)}
@@ -144,16 +173,14 @@
 		<!-- 3. Menü-Übersicht -->
 		<section class="sheet">
 			<h2>Menü-Übersicht</h2>
-			<table class="grid">
+			<table class="grid overview">
 				<thead>
-					<tr
-						><th>Tag</th>{#each MENU_SLOTS as s (s)}<th>{SLOT_LABELS[s]}</th>{/each}</tr
-					>
+					<tr><th>Tag</th>{#each MENU_SLOTS as s (s)}<th>{SLOT_LABELS[s]}</th>{/each}</tr>
 				</thead>
 				<tbody>
 					{#each days as day (day.index)}
 						<tr>
-							<td><strong>{day.index + 1}</strong>{day.date ? `\n${day.date}` : ''}</td>
+							<td class="daycell"><strong>Tag {day.index + 1}</strong>{day.date ? `\n${day.date}` : ''}</td>
 							{#each MENU_SLOTS as s (s)}
 								<td>{day.meals.find((m) => m.slot === s)?.recipe.name ?? '–'}</td>
 							{/each}
@@ -161,23 +188,27 @@
 					{/each}
 				</tbody>
 			</table>
+			<p class="hint">Mengen auf {heads} Personen. Vegi-Varianten stehen auf den Kochtag-Blättern.</p>
 		</section>
 
 		<!-- 4. Kochtag-Blätter -->
 		{#each days as day (day.index)}
 			<section class="sheet">
-				<h2>Kochtag {day.index + 1}{day.date ? ` · ${day.date}` : ''}</h2>
+				<h2>Kochtag {day.index + 1}<span class="sub">{day.date ? ` · ${day.date}` : ''}</span></h2>
 				{#if day.meals.length === 0}
 					<p>Keine Gerichte zugeteilt.</p>
 				{/if}
 				{#each day.meals as m (m.slot)}
 					<div class="meal">
-						<h3>{SLOT_LABELS[m.slot]}: {m.recipe.name}</h3>
+						<h3><span class="slot">{SLOT_LABELS[m.slot]}</span> {m.recipe.name}</h3>
 						{#if m.schedule}
 							<p class="sched">
-								Aufstehen/Rüsten {m.schedule.wake} · Kochbeginn {m.schedule.start} · Essen {m
+								⏰ Aufstehen/Rüsten {m.schedule.wake} · Kochbeginn {m.schedule.start} · Essen {m
 									.schedule.meal}
 							</p>
+						{/if}
+						{#if m.needsVegi}
+							<p class="vegi">🥗 Vegi-Variante separat für {vegiCount} Person(en) zubereiten.</p>
 						{/if}
 						<table class="tight grid">
 							<tbody>
@@ -186,9 +217,9 @@
 								{/each}
 							</tbody>
 						</table>
-						<p class="steps">
-							{#each m.recipe.steps as step, i (i)}<span>{i + 1}. {step} </span>{/each}
-						</p>
+						<ol class="steps">
+							{#each m.recipe.steps as step, i (i)}<li>{step}</li>{/each}
+						</ol>
 						<p class="kessel">
 							Kessel {m.scaled.cooking.kesselLiter} l · {m.scaled.cooking.kochstellen} Kochstellen · Rüsten
 							{m.scaled.cooking.ruestPersonenminuten} Pers.-Min.
@@ -196,8 +227,8 @@
 					</div>
 				{/each}
 				<p class="aemtli">
-					Ämtli: Kochen ____________ · Rüsten ____________ · Abwasch ____________<br />Vorbereitung
-					Folgetag: ______________________________________________
+					Ämtli: Kochen ____________ · Rüsten ____________ · Abwasch ____________<br />
+					Vorbereitung Folgetag: ______________________________________________
 				</p>
 			</section>
 		{/each}
@@ -206,18 +237,19 @@
 		{#if shopping}
 			{#each shopping.runs as run (run.id)}
 				<section class="sheet">
-					<h2>Einkauf: {run.label}</h2>
+					<h2>Einkauf<span class="sub"> · {run.label}</span></h2>
 					{#if run.fridgeWarning}<p class="warn">⚠ {run.fridgeWarning}</p>{/if}
 					{#each run.byCategory as cat (cat.category)}
 						<h3>{STORE_LABELS[cat.category]}</h3>
-						<table class="tight grid">
+						<table class="tight grid shop">
 							<tbody>
 								{#each cat.items as item (item.name)}
-									<tr
-										><td class="check">☐</td><td>{item.packs} × {item.packLabel}</td><td
-											>{item.name}</td
-										><td class="num">{fmt(item.purchased, item.unit)}</td></tr
-									>
+									<tr>
+										<td class="check">☐</td>
+										<td class="qty">{item.packs} × {item.packLabel}</td>
+										<td>{item.name}</td>
+										<td class="num">{fmt(item.purchased, item.unit)}</td>
+									</tr>
 								{/each}
 							</tbody>
 						</table>
@@ -232,11 +264,12 @@
 			<table class="tight grid">
 				<tbody>
 					{#each dryStore as item, ii (ii)}
-						<tr
-							><td class="check">☐</td><td>{item.name}</td><td class="num"
-								>{fmt(item.purchased, item.unit)}</td
-							><td>Rest: ______</td></tr
-						>
+						<tr>
+							<td class="check">☐</td>
+							<td>{item.name}</td>
+							<td class="num">{fmt(item.purchased, item.unit)}</td>
+							<td>Rest: ______</td>
+						</tr>
 					{/each}
 				</tbody>
 			</table>
@@ -246,25 +279,21 @@
 		{#if budget}
 			<section class="sheet">
 				<h2>Budget</h2>
-				<p>
-					Geplant total <strong>CHF {budget.plannedTotal.toFixed(2)}</strong> · Ziel CHF {budget.targetTotal.toFixed(
-						2
-					)} · {budget.personDays} Personentage
-				</p>
-				<p>
-					Pro Person/Tag: geplant CHF {budget.plannedPerPersonDay.toFixed(2)} / Ziel CHF {budget.targetPerPersonDay.toFixed(
-						2
-					)}
-				</p>
+				<div class="meta small">
+					<div><span class="k">Geplant total</span><span class="v">CHF {budget.plannedTotal.toFixed(2)}</span></div>
+					<div><span class="k">Ziel total</span><span class="v">CHF {budget.targetTotal.toFixed(2)}</span></div>
+					<div><span class="k">Pro Pers./Tag</span><span class="v">CHF {budget.plannedPerPersonDay.toFixed(2)}</span></div>
+					<div><span class="k">Personentage</span><span class="v">{budget.personDays}</span></div>
+				</div>
 				<table class="tight grid">
 					<thead><tr><th>Tag</th><th>geplant</th><th>Ist-Kosten (handschriftlich)</th></tr></thead>
 					<tbody>
 						{#each budget.days as d (d.index)}
-							<tr
-								><td>{d.index + 1}{d.date ? ` · ${d.date}` : ''}</td><td class="num"
-									>CHF {d.total.toFixed(2)}</td
-								><td>____________</td></tr
-							>
+							<tr>
+								<td>Tag {d.index + 1}{d.date ? ` · ${d.date}` : ''}</td>
+								<td class="num">CHF {d.total.toFixed(2)}</td>
+								<td>____________</td>
+							</tr>
 						{/each}
 					</tbody>
 				</table>
@@ -278,12 +307,12 @@
 
 <style>
 	.dossier {
-		max-width: 800px;
+		max-width: 820px;
 		margin: 0 auto;
 		padding: 1rem;
-		color: #000;
+		color: #111;
 		font-size: 11pt;
-		line-height: 1.35;
+		line-height: 1.4;
 	}
 	.controls {
 		display: flex;
@@ -298,35 +327,93 @@
 		background: #0284c7;
 		color: #fff;
 		border: none;
-		border-radius: 0.375rem;
+		border-radius: 0.5rem;
 		padding: 0.5rem 1rem;
 		font-weight: 600;
 		cursor: pointer;
 	}
+	.controls a {
+		color: #0284c7;
+		text-decoration: none;
+		font-weight: 600;
+	}
+	.empty {
+		padding: 2rem;
+		text-align: center;
+		color: #444;
+	}
 	.sheet {
-		border: 1px solid #ccc;
-		border-radius: 0.5rem;
-		padding: 1.25rem;
+		border: 1px solid #e2e2e2;
+		border-radius: 0.6rem;
+		padding: 1.4rem 1.5rem;
 		margin-bottom: 1.25rem;
 		background: #fff;
 	}
 	h1 {
-		font-size: 1.8rem;
-		font-weight: 700;
+		font-size: 2rem;
+		font-weight: 800;
+		letter-spacing: -0.01em;
+		margin: 0.2rem 0;
 	}
 	h2 {
 		font-size: 1.3rem;
 		font-weight: 700;
-		margin-bottom: 0.5rem;
+		margin: 0 0 0.7rem;
+		padding-left: 0.6rem;
+		border-left: 4px solid #0284c7;
+		color: #0f172a;
 	}
 	h3 {
-		font-size: 1.05rem;
+		font-size: 1.02rem;
 		font-weight: 600;
-		margin-top: 0.75rem;
+		margin: 0.8rem 0 0.3rem;
+	}
+	.sub {
+		font-weight: 500;
+		color: #64748b;
+	}
+	/* Cover */
+	.cover-head {
+		border-bottom: 3px solid #0284c7;
+		padding-bottom: 0.8rem;
+		margin-bottom: 1rem;
+	}
+	.brand {
+		font-weight: 700;
+		color: #0284c7;
+		font-size: 0.95rem;
 	}
 	.lead {
 		font-size: 1.1rem;
-		margin: 0.25rem 0 1rem;
+		color: #475569;
+		margin: 0.25rem 0 0;
+	}
+	.meta {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.5rem 1rem;
+		margin: 0 0 1.2rem;
+	}
+	.meta.small {
+		grid-template-columns: repeat(4, 1fr);
+		margin-bottom: 0.8rem;
+	}
+	.meta > div {
+		display: flex;
+		flex-direction: column;
+		border-left: 3px solid #e2e8f0;
+		padding-left: 0.55rem;
+	}
+	.meta .k {
+		font-size: 0.68rem;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		color: #64748b;
+	}
+	.meta .v {
+		font-size: 1.2rem;
+		font-weight: 700;
+		color: #0f172a;
 	}
 	table {
 		width: 100%;
@@ -335,11 +422,15 @@
 	}
 	.grid th,
 	.grid td {
-		border: 1px solid #999;
-		padding: 0.25rem 0.4rem;
+		border: 1px solid #cbd5e1;
+		padding: 0.28rem 0.45rem;
 		text-align: left;
 		vertical-align: top;
 		white-space: pre-line;
+	}
+	.grid thead th {
+		background: #f1f5f9;
+		font-size: 0.82rem;
 	}
 	.grid.big th,
 	.grid.big td {
@@ -347,7 +438,16 @@
 		padding: 0.5rem;
 	}
 	.grid.tight td {
-		padding: 0.15rem 0.35rem;
+		padding: 0.16rem 0.4rem;
+	}
+	.overview td:first-child,
+	.daycell {
+		white-space: pre-line;
+		background: #f8fafc;
+	}
+	.shop .qty {
+		font-weight: 700;
+		white-space: nowrap;
 	}
 	.num {
 		text-align: right;
@@ -358,38 +458,80 @@
 	}
 	.severe {
 		font-weight: 700;
+		color: #b91c1c;
+	}
+	.notfall {
+		max-width: 26rem;
 	}
 	.notfall th {
 		text-align: left;
 		padding: 0.3rem 0.6rem 0.3rem 0;
+		font-weight: 600;
 	}
 	.notfall td {
 		padding: 0.3rem 0;
 	}
 	.meal {
-		margin-bottom: 0.75rem;
+		margin-bottom: 1rem;
+		padding-bottom: 0.6rem;
+		border-bottom: 1px dashed #e2e8f0;
 		break-inside: avoid;
+	}
+	.meal:last-of-type {
+		border-bottom: none;
+	}
+	.slot {
+		display: inline-block;
+		background: #0284c7;
+		color: #fff;
+		font-size: 0.72rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		padding: 0.1rem 0.4rem;
+		border-radius: 0.3rem;
+		vertical-align: middle;
+		margin-right: 0.35rem;
 	}
 	.sched {
 		font-weight: 600;
+		color: #0f172a;
+		margin: 0.2rem 0;
+	}
+	.vegi {
+		display: inline-block;
+		background: #ecfdf5;
+		border: 1px solid #a7f3d0;
+		color: #065f46;
+		font-size: 0.85em;
+		padding: 0.1rem 0.5rem;
+		border-radius: 0.3rem;
+		margin: 0.2rem 0;
 	}
 	.steps {
 		font-size: 0.95em;
+		margin: 0.4rem 0 0.3rem 1.1rem;
+	}
+	.steps li {
+		margin-bottom: 0.1rem;
 	}
 	.kessel,
 	.hint {
 		font-size: 0.85em;
-		color: #444;
+		color: #475569;
 	}
 	.aemtli {
-		margin-top: 0.75rem;
+		margin-top: 0.9rem;
 		font-size: 0.9em;
+		color: #334155;
 	}
 	.warn {
 		font-weight: 700;
+		color: #b45309;
 	}
 	.check {
 		font-size: 1.1em;
+		width: 1.4rem;
 	}
 
 	@media print {
@@ -399,6 +541,7 @@
 		.dossier {
 			max-width: none;
 			padding: 0;
+			font-size: 10.5pt;
 		}
 		.sheet {
 			border: none;
@@ -409,6 +552,10 @@
 		}
 		.meal {
 			page-break-inside: avoid;
+		}
+		.slot {
+			-webkit-print-color-adjust: exact;
+			print-color-adjust: exact;
 		}
 	}
 </style>
