@@ -32,6 +32,11 @@
 		ctx.groups.splice(i, 1);
 	}
 
+	function onCampType() {
+		// Sensible default: tents rarely have an oven, houses usually do.
+		ctx.equipment.backofen = ctx.campType === 'haus';
+	}
+
 	let kesselText = $state(ctx.equipment.kesselLiter.join(', '));
 	function applyKessel() {
 		ctx.equipment.kesselLiter = kesselText
@@ -113,7 +118,11 @@
 				</label>
 				<label class="text-sm text-gray-600"
 					>Lagerart
-					<select class="mt-0.5 w-full rounded-lg border-gray-300 text-sm" bind:value={ctx.campType}>
+					<select
+						class="mt-0.5 w-full rounded-lg border-gray-300 text-sm"
+						bind:value={ctx.campType}
+						onchange={onCampType}
+					>
 						{#each CAMP_TYPES as c (c)}<option value={c}>{CAMP_TYPE_LABELS[c]}</option>{/each}
 					</select>
 				</label>

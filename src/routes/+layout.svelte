@@ -1,6 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
+	import { onMount } from 'svelte';
 	import { dev } from '$app/environment';
 	import { page } from '$app/state';
 	import { session } from '$lib/stores/session.svelte';
@@ -9,6 +10,27 @@
 	import { locale, setLocale, tr } from '$lib/i18n/locale.svelte';
 
 	let { children, data } = $props();
+
+	// Persist the camp setup across reloads (customer-ready: settings should stick).
+	const CONTEXT_KEY = 'camp-context';
+	let contextHydrated = $state(false);
+	onMount(() => {
+		try {
+			const raw = localStorage.getItem(CONTEXT_KEY);
+			if (raw) Object.assign(session.context, JSON.parse(raw));
+		} catch {
+			/* ignore corrupt storage */
+		}
+		contextHydrated = true;
+	});
+	$effect(() => {
+		if (!contextHydrated) return;
+		try {
+			localStorage.setItem(CONTEXT_KEY, JSON.stringify(session.context));
+		} catch {
+			/* ignore quota / private mode */
+		}
+	});
 
 	// Register the offline service worker in production only (Kapitel 7: PWA).
 	$effect(() => {

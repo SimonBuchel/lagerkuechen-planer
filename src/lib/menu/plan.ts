@@ -8,7 +8,7 @@ import type { ParsedProgram } from '../parser/types';
 import { recipeById, recipesForSlot } from '../recipes/registry';
 import type { Recipe } from '../recipes/types';
 import { VARIETY_WINDOW_DAYS } from '../rules/checks';
-import { sortRecipesSmart, type CampType, type Season } from './diet';
+import { recipeIsHeavy, sortRecipesSmart, type CampType, type Season } from './diet';
 import type { MealSlot } from '../rules/types';
 
 /** Meals every day gets. */
@@ -76,6 +76,8 @@ export interface AutoAssignOptions {
 	dessertDays?: Set<number>;
 	/** Day indices that get an afternoon snack (default: none). */
 	zvieriDays?: Set<number>;
+	/** Drop candidates the kitchen can't make (e.g. oven dishes without an oven). */
+	exclude?: (recipe: Recipe) => boolean;
 }
 
 /**
@@ -99,13 +101,25 @@ export function autoAssign(plan: MenuPlan, opts: AutoAssignOptions = {}): MenuPl
 		return false; // snack stays manual
 	};
 
+	// Heavy mains shouldn't land on back-to-back days (user feedback: "zu lastig").
+	const heavyMain = (slot: MealSlot, day: number): boolean => {
+		if (day < 0 || (slot !== 'zmittag' && slot !== 'znacht')) return false;
+		const id = days[day]?.slots[slot];
+		const r = id ? recipeById(id) : undefined;
+		return r ? recipeIsHeavy(r) : false;
+	};
+
 	const slotsToFill: MealSlot[] = ['zmorge', 'zmittag', 'znacht', 'zvieri', 'dessert'];
 	for (const slot of slotsToFill) {
-		const options = sortRecipesSmart(recipesForSlot(slot), {
+		let options = sortRecipesSmart(recipesForSlot(slot), {
 			share: opts.vegiShare ?? 0,
 			season: opts.season,
 			campType: opts.campType
 		});
+		if (opts.exclude) {
+			const filtered = options.filter((r) => !opts.exclude!(r));
+			if (filtered.length > 0) options = filtered; // never empty the slot entirely
+		}
 		if (options.length === 0) continue;
 		let cursor = 0;
 		for (let i = 0; i < days.length; i++) {
@@ -117,15 +131,28 @@ export function autoAssign(plan: MenuPlan, opts: AutoAssignOptions = {}): MenuPl
 					.map((d) => d.slots[slot])
 					.filter((x): x is string => x !== null)
 			);
+			const avoidHeavy = heavyMain(slot, i - 1);
 			let chosen = options[cursor % options.length];
-			for (let k = 0; k < options.length; k++) {
-				const cand = options[(cursor + k) % options.length];
-				if (!recent.has(cand.id)) {
+			// Two passes: first honour the heavy-day-after guard, then relax it so a
+			// dish is always chosen even if every remaining option is heavy.
+			for (const strict of [true, false]) {
+				let picked = false;
+				for (let k = 0; k < options.length; k++) {
+					const cand = options[(cursor + k) % options.length];
+					if (recent.has(cand.id)) {
+						if (k === options.length - 1) cursor += 1;
+						continue;
+					}
+					if (strict && avoidHeavy && recipeIsHeavy(cand)) {
+						if (k === options.length - 1) cursor += 1;
+						continue;
+					}
 					chosen = cand;
 					cursor += k + 1;
+					picked = true;
 					break;
 				}
-				if (k === options.length - 1) cursor += 1;
+				if (picked) break;
 			}
 			days[i].slots[slot] = chosen.id;
 		}

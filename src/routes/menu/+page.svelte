@@ -62,7 +62,15 @@
 					)
 			)
 		);
-		return { vegiShare: vegi, season: ctx.season, campType: ctx.campType, dessertDays, zvieriDays };
+		return {
+			vegiShare: vegi,
+			season: ctx.season,
+			campType: ctx.campType,
+			dessertDays,
+			zvieriDays,
+			// Never plan an oven dish when the kitchen has no oven (e.g. tent camp).
+			exclude: (r) => r.cooking.brauchtOfen && !ctx.equipment.backofen
+		};
 	}
 
 	// Build a smart suggested plan automatically the first time (user feedback:
@@ -82,11 +90,12 @@
 	// Add an optional meal (Zvieri/Dessert/Snack) to a single day on demand.
 	function addSlot(dayIndex: number, slot: MealSlot) {
 		if (!session.plan) return;
-		const best = sortRecipesSmart(recipesForSlot(slot), {
+		const ranked = sortRecipesSmart(recipesForSlot(slot), {
 			share: vegi,
 			season: ctx.season,
 			campType: ctx.campType
-		})[0];
+		});
+		const best = ranked.find((r) => !(r.cooking.brauchtOfen && !ctx.equipment.backofen)) ?? ranked[0];
 		if (best) session.plan.days[dayIndex].slots[slot] = best.id;
 	}
 
@@ -157,6 +166,13 @@
 			};
 		});
 	});
+
+	const largestKettle = $derived(
+		ctx.equipment.kesselLiter.length ? Math.max(...ctx.equipment.kesselLiter) : 0
+	);
+	const equipIssues = $derived(
+		days.flatMap((d) => d.meals).filter((m) => m.equip && m.equip.length > 0).length
+	);
 
 	const DIET_BADGE: Record<string, { label: string; cls: string }> = {
 		vegan: { label: 'Vegan', cls: 'bg-green-100 text-green-800' },
@@ -334,6 +350,16 @@
 		<p class="mt-3 text-sm text-gray-500">
 			Mengen gelten <strong>pro Person</strong> und sind auf {heads} Personen hochgerechnet. Jede Zuteilung
 			ist ein Vorschlag – per Auswahl oder Drag-and-Drop änderbar.
+			<br />
+			<span class="text-gray-400">
+				Küche: {ctx.campType === 'zelt' ? 'Zeltlager' : 'Hauslager'} ·
+				{ctx.equipment.backofen ? 'mit Ofen' : 'ohne Ofen'} · grösster Kessel {largestKettle} l
+			</span>
+			{#if equipIssues > 0}
+				<span class="font-medium text-red-600"
+					>· {equipIssues} Gericht(e) mit Ausstattungs-Hinweis</span
+				>
+			{/if}
 			{#if aiConfigured}
 				<span class="text-gray-400">Mit «✨ Smart-Plan (KI)» optimiert Claude die Auswahl.</span>
 			{/if}
@@ -454,6 +480,10 @@
 										<div class="mt-1 text-[11px] text-sky-700" title={ef.rule}>→ {ef.reason}</div>
 									{/each}
 
+									{#each m.equip as w (w.kind)}
+										<div class="mt-1 rounded bg-red-50 px-2 py-1 text-[11px] font-medium text-red-800">🍳 {w.message}</div>
+									{/each}
+
 									<details class="mt-1.5">
 										<summary class="cursor-pointer text-[11px] text-gray-400 hover:text-gray-600"
 											>Mengen für {heads} Pers.</summary
@@ -471,9 +501,6 @@
 											Kessel {m.scaled.cooking.kesselLiter} l · Rüsten {m.scaled.cooking
 												.ruestPersonenminuten} Pers.-Min.
 										</div>
-										{#each m.equip as w (w.kind)}<div class="mt-0.5 text-[11px] text-red-700">
-												⚠️ {w.message}
-											</div>{/each}
 									</details>
 								{/if}
 							</div>

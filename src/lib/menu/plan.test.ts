@@ -1,50 +1,54 @@
 import { describe, expect, it } from 'vitest';
-import type { ParsedProgram } from '../parser/types';
-import { autoAssign, buildPlan, recipeById, recipesForSlot } from './plan';
+import { autoAssign, MENU_SLOTS } from './plan';
+import { recipeById } from '../recipes/registry';
+import { recipeIsHeavy } from './diet';
+import type { MealSlot } from '../rules/types';
 
-function programOf(dayCount: number): ParsedProgram {
-	return {
-		camp: null,
-		periods: [],
-		days: Array.from({ length: dayCount }, (_, i) => ({
-			date: `2026-07-${String(12 + i).padStart(2, '0')}`,
-			blocks: []
-		})),
-		timeAxis: { hourHeight: 0, anchorTop: 0, anchorHour: 7, anchorSource: 'default' },
-		legend: [],
-		warnings: []
-	};
+function emptyPlan(n: number) {
+	const slots = () =>
+		Object.fromEntries(MENU_SLOTS.map((s) => [s, null])) as Record<MealSlot, string | null>;
+	return { days: Array.from({ length: n }, () => ({ date: null, slots: slots() })) };
 }
 
-describe('buildPlan', () => {
-	it('creates one empty menu day per programme day', () => {
-		const plan = buildPlan(programOf(3));
-		expect(plan.days).toHaveLength(3);
-		expect(plan.days[0].slots.zmittag).toBeNull();
-	});
-});
-
-describe('recipesForSlot', () => {
-	it('returns several lunch options', () => {
-		expect(recipesForSlot('zmittag').length).toBeGreaterThan(3);
-	});
-});
-
-describe('autoAssign', () => {
-	it('fills lunch every day and varies consecutive days', () => {
-		const plan = autoAssign(buildPlan(programOf(5)));
-		const lunches = plan.days.map((d) => d.slots.zmittag);
-		expect(lunches.every((l) => l !== null)).toBe(true);
-		for (let i = 1; i < lunches.length; i++) {
-			expect(lunches[i]).not.toBe(lunches[i - 1]); // no back-to-back repeat
+describe('autoAssign smart planning', () => {
+	it('never assigns an oven dish when the kitchen has no oven', () => {
+		const plan = autoAssign(emptyPlan(8), { exclude: (r) => r.cooking.brauchtOfen });
+		for (const d of plan.days) {
+			for (const slot of ['zmittag', 'znacht'] as MealSlot[]) {
+				const r = recipeById(d.slots[slot]);
+				if (r) expect(r.cooking.brauchtOfen).toBe(false);
+			}
 		}
-		expect(recipeById(lunches[0])).toBeDefined();
 	});
 
-	it('keeps a user-set assignment', () => {
-		const base = buildPlan(programOf(3));
-		base.days[1].slots.zmittag = 'kuerbissuppe';
-		const plan = autoAssign(base);
-		expect(plan.days[1].slots.zmittag).toBe('kuerbissuppe');
+	it('does not put heavy mains on consecutive days', () => {
+		const plan = autoAssign(emptyPlan(10), {});
+		const maxHeavyRun = (slot: MealSlot) => {
+			let run = 0;
+			let max = 0;
+			for (const d of plan.days) {
+				const r = recipeById(d.slots[slot]);
+				run = r && recipeIsHeavy(r) ? run + 1 : 0;
+				max = Math.max(max, run);
+			}
+			return max;
+		};
+		expect(maxHeavyRun('zmittag')).toBeLessThanOrEqual(1);
+		expect(maxHeavyRun('znacht')).toBeLessThanOrEqual(1);
+	});
+
+	it('does not plan dessert or Zvieri on every day by default', () => {
+		const plan = autoAssign(emptyPlan(8), {});
+		const withDessert = plan.days.filter((d) => d.slots.dessert).length;
+		const withZvieri = plan.days.filter((d) => d.slots.zvieri).length;
+		expect(withDessert).toBeLessThan(plan.days.length);
+		expect(withZvieri).toBe(0); // none unless the caller marks active days
+	});
+});
+
+describe('recipeIsHeavy', () => {
+	it('flags rich dishes and clears light ones', () => {
+		expect(recipeIsHeavy(recipeById('aelplermagronen')!)).toBe(true);
+		expect(recipeIsHeavy(recipeById('gemuesecurry-reis')!)).toBe(false);
 	});
 });

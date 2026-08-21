@@ -82,6 +82,13 @@ export const CAMP_TYPE_LABELS: Record<CampType, string> = {
 	zelt: 'Zeltlager'
 };
 
+/** Heuristic: is this a heavy, rich main (cheese/cream/roast/bake)? */
+export function recipeIsHeavy(recipe: Recipe): boolean {
+	return /magronen|gratin|lasagne|auflauf|braten|carbonara|r[öo]sti|pizza|raclette|fondue|hörnli|schnitzel|geschnetzelt/i.test(
+		recipe.name
+	);
+}
+
 /** Heuristic: is this dish served cold (salad, cold platter)? */
 export function recipeIsCold(recipe: Recipe): boolean {
 	const t = recipe.name.toLowerCase();
@@ -122,6 +129,9 @@ export function sortRecipesSmart(
 
 		// Tent camps: an oven is impractical.
 		if (opts.campType === 'zelt' && r.cooking.brauchtOfen) s += 20;
+
+		// Prefer lighter dishes so heavy, rich meals don't dominate the week.
+		if (recipeIsHeavy(r)) s += 18;
 
 		return s;
 	};
