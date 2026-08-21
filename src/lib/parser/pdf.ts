@@ -10,29 +10,25 @@
 
 // pdf.js legacy build runs in plain Node without a browser worker.
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { createRequire } from 'node:module';
+// Embed the worker source as a string at build time. pdf.js loads its worker via
+// a runtime `import(this.workerSrc)` that bundlers (Vercel's @vercel/nft) can't
+// trace, so the worker file is otherwise missing from the serverless function
+// ("Setting up fake worker failed: Cannot find module pdf.worker.mjs"). `?raw`
+// inlines the code into the bundle, independent of any file-tracing heuristic.
+import workerSource from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?raw';
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { FilledRect, PageGeometry, RGB, Word } from './types';
 
-// pdf.js resolves its worker through a runtime `import(this.workerSrc)` that
-// bundlers (Vercel's @vercel/nft) cannot trace, so the worker file is missing
-// from the serverless function ("Setting up fake worker failed: Cannot find
-// module pdf.worker.mjs"). Pin workerSrc to the resolved path: require.resolve
-// takes a string literal, which nft *does* trace, so the worker ships too.
-let workerSetupInfo = 'unset';
+// Materialise the embedded worker to a tmp file and point pdf.js at it.
 try {
-	const req = createRequire(import.meta.url);
-	const resolved = req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
-	pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(resolved).href;
-	workerSetupInfo = `resolved=${resolved}`;
-} catch (e) {
-	// Fall back to pdf.js' own default resolution when this isn't possible.
-	workerSetupInfo = `resolve-error=${e instanceof Error ? e.message : String(e)}`;
-}
-
-/** TEMP DEBUG: how the pdf.js worker was configured (for deployed diagnostics). */
-export function workerDiagnostics(): string {
-	return `${workerSetupInfo} | workerSrc=${pdfjs.GlobalWorkerOptions.workerSrc}`;
+	const workerPath = join(tmpdir(), 'lagerkueche-pdf.worker.min.mjs');
+	writeFileSync(workerPath, workerSource);
+	pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+} catch {
+	// Fall back to pdf.js' own default resolution when the tmp write isn't possible.
 }
 
 // pdf.js v4 relies on Promise.withResolvers, which only exists on Node 22+.

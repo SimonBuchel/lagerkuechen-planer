@@ -19,7 +19,7 @@ export * from './geometry';
 export * from './text';
 export * from './dates';
 export * from './metadata';
-export { loadPageGeometries, workerDiagnostics } from './pdf';
+export { loadPageGeometries } from './pdf';
 
 /**
  * Parses one eCamp export PDF into a structured program.

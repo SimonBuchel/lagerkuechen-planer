@@ -8,7 +8,7 @@
  */
 
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { parseEcampPdf, workerDiagnostics, type AnalyzeOptions } from '$lib/parser';
+import { parseEcampPdf, type AnalyzeOptions } from '$lib/parser';
 
 /** Upper bound on accepted upload size (guards the parser against huge inputs). */
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB
@@ -62,8 +62,7 @@ export const POST: RequestHandler = async ({ request }) => {
 					'Die Datei konnte nicht als eCamp-Export gelesen werden. ' +
 					'Bitte prüfe, ob es ein «Picasso»-Druck aus eCamp ist – oder erfasse die Tage manuell.',
 				detail,
-				stackTop,
-				workerDiag: workerDiagnostics()
+				stackTop
 			},
 			{ status: 422 }
 		);
