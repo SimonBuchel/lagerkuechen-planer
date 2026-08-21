@@ -19,13 +19,20 @@ import type { FilledRect, PageGeometry, RGB, Word } from './types';
 // from the serverless function ("Setting up fake worker failed: Cannot find
 // module pdf.worker.mjs"). Pin workerSrc to the resolved path: require.resolve
 // takes a string literal, which nft *does* trace, so the worker ships too.
+let workerSetupInfo = 'unset';
 try {
 	const req = createRequire(import.meta.url);
-	pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
-		req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
-	).href;
-} catch {
+	const resolved = req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+	pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(resolved).href;
+	workerSetupInfo = `resolved=${resolved}`;
+} catch (e) {
 	// Fall back to pdf.js' own default resolution when this isn't possible.
+	workerSetupInfo = `resolve-error=${e instanceof Error ? e.message : String(e)}`;
+}
+
+/** TEMP DEBUG: how the pdf.js worker was configured (for deployed diagnostics). */
+export function workerDiagnostics(): string {
+	return `${workerSetupInfo} | workerSrc=${pdfjs.GlobalWorkerOptions.workerSrc}`;
 }
 
 // pdf.js v4 relies on Promise.withResolvers, which only exists on Node 22+.
