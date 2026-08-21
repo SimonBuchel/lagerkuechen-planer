@@ -9,6 +9,7 @@
 
 import type { Recipe } from './types';
 import { EXTRA_RECIPES } from './data-extra';
+import { MORE_RECIPES } from './data-more';
 
 const CORE_RECIPES: readonly Recipe[] = [
 	// ---- Hauptgerichte (Zmittag / Znacht) ----
@@ -1253,4 +1254,4 @@ const CORE_RECIPES: readonly Recipe[] = [
 ];
 
 /** The full recipe collection (core + extra), 60+ recipes for the DoD. */
-export const RECIPES: readonly Recipe[] = [...CORE_RECIPES, ...EXTRA_RECIPES];
+export const RECIPES: readonly Recipe[] = [...CORE_RECIPES, ...EXTRA_RECIPES, ...MORE_RECIPES];
