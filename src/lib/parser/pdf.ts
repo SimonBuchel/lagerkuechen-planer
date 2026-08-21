@@ -10,7 +10,23 @@
 
 // pdf.js legacy build runs in plain Node without a browser worker.
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import type { FilledRect, PageGeometry, RGB, Word } from './types';
+
+// pdf.js resolves its worker through a runtime `import(this.workerSrc)` that
+// bundlers (Vercel's @vercel/nft) cannot trace, so the worker file is missing
+// from the serverless function ("Setting up fake worker failed: Cannot find
+// module pdf.worker.mjs"). Pin workerSrc to the resolved path: require.resolve
+// takes a string literal, which nft *does* trace, so the worker ships too.
+try {
+	const req = createRequire(import.meta.url);
+	pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
+		req.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')
+	).href;
+} catch {
+	// Fall back to pdf.js' own default resolution when this isn't possible.
+}
 
 // pdf.js v4 relies on Promise.withResolvers, which only exists on Node 22+.
 // Vercel/older runtimes on Node 20 would otherwise throw during getDocument,
