@@ -221,7 +221,10 @@ function analyzeGrobprogrammPage(
 		}
 		const dayIdx = columnOf(cx(w));
 		if (dayIdx < 0 || dayIdx >= days.length) continue;
-		const start = axis ? minutesToHHMM(topToMinutes(axis, cy(w))) : null;
+		// The activity's start is the block top; the text baseline sits a little
+		// below it, so anchor on the word's top edge (not its centre) to avoid a
+		// systematic ~10–15 min late bias.
+		const start = axis ? minutesToHHMM(topToMinutes(axis, w.top)) : null;
 		const block: ParsedBlock = {
 			category: act.category,
 			start,

@@ -23,14 +23,14 @@ function samplePage(): PageGeometry {
 			w('08:00', 790, 124),
 			w('12:00', 33, 220),
 			w('12:00', 790, 220),
-			// day 0 (Fr) activities
-			w('ES Zmorge', 160, 100), // cy104 → 07:00
-			w('LP 1.1 Morgensport', 160, 124), // cy128 → 08:00, number stripped
+			// day 0 (Fr) activities — top edge aligns to the hour (start = block top)
+			w('ES Zmorge', 160, 104), // top104 → 07:00
+			w('LP 1.1 Morgensport', 160, 128), // top128 → 08:00, number stripped
 			// wrapped title continuation
 			w('LS 5.1 Gelände-', 160, 140), // cy144
 			w('spiel', 162, 152), // cy156, 12px below → joins → "Geländespiel"
 			// day 1 (Sa) activity
-			w('ES Zmittag', 410, 220), // cy224 → 12:00, col1
+			w('ES Zmittag', 410, 224), // top224 → 12:00, col1
 			// noise that must be ignored
 			w('SA', 320, 120), // responsible initials
 			w('Tagesverantwortliche: Fips', 160, 70),
