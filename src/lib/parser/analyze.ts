@@ -195,8 +195,13 @@ function buildTimeAxis(
 	warnings: string[]
 ): TimeAxisInfo {
 	const firstColX0 = columns.length ? Math.min(...columns.map((c) => c.x0)) : page.width;
-	const axisWords = page.words.filter((w) => w.x1 <= firstColX0 - 2 && looksLikeTimeLabel(w.text));
-	const rows = clusterRows(axisWords);
+	// The axis labels are often fragmented into one text item per glyph (and the
+	// digits may be a PUA subset font), so we must first cluster every left-margin
+	// word into rows and only then check whether the assembled row reads as a time
+	// label. Filtering per glyph would drop the digits and keep only the ":" —
+	// which is exactly what broke anchor decoding on several exports.
+	const axisWords = page.words.filter((w) => w.x1 <= firstColX0 - 2);
+	const rows = clusterRows(axisWords).filter((r) => rowLooksLikeTime(r.text));
 
 	if (rows.length < 2) {
 		warnings.push('Zeitachse konnte nicht sicher bestimmt werden – bitte Startzeit prüfen.');
@@ -232,13 +237,22 @@ function buildTimeAxis(
 }
 
 /** A time label is short and made of digits, a separator and/or PUA glyphs. */
-function looksLikeTimeLabel(text: string): boolean {
-	const t = text.trim();
-	if (t.length === 0 || t.length > 6) return false;
-	return /[:.]/.test(t) || /[-]/.test(t) || /^\d{1,2}$/.test(t);
-}
 
 /** Clusters words into rows by `top`, returning one representative per row. */
+/**
+ * Checks an **assembled** axis row (glyphs already joined in x-order): one or two
+ * glyphs, a `:`/`.` separator, then exactly two glyphs — i.e. `HH:MM`. Works for
+ * plain digits and for PUA subset-font glyphs alike (glyphs count toward length
+ * but are not digit-matched here; decoding happens later).
+ */
+function rowLooksLikeTime(text: string): boolean {
+	const chars = [...text.trim()];
+	if (chars.length < 3 || chars.length > 6) return false;
+	const sep = chars.findIndex((c) => c === ':' || c === '.');
+	if (sep < 1 || sep > 2) return false;
+	return chars.length - sep - 1 === 2;
+}
+
 function clusterRows(words: Word[], tolerance = 3): { top: number; text: string }[] {
 	if (words.length === 0) return [];
 	const sorted = [...words].sort((a, b) => a.top - b.top || a.x0 - b.x0);

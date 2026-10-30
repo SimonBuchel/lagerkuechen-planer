@@ -60,7 +60,9 @@ function pad2(n: number): string {
 }
 
 function minutesToHHMM(min: number): string {
-	const m = ((Math.round(min) % 1440) + 1440) % 1440;
+	// eCamp schedules on a 5-minute grid, so snap to the nearest 5 minutes.
+	const snapped = Math.round(min / 5) * 5;
+	const m = ((snapped % 1440) + 1440) % 1440;
 	return `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
 }
 

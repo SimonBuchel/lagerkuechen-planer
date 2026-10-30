@@ -221,11 +221,10 @@ export function learnPuaDigits(labelsTopDown: string[]): Map<string, string> | n
 		const usedDigits = new Map<string, string>(); // digit -> glyph, to enforce injectivity
 		let ok = true;
 		for (let i = 0; i < splits.length && ok; i++) {
-			const hourValue = start + i;
-			if (hourValue > 23) {
-				ok = false;
-				break;
-			}
+			// The axis can span more than 24 rows and wrap past midnight (camps with
+			// night activities start e.g. at 03:00 and run to 02:00), so wrap mod 24
+			// instead of giving up — otherwise decoding fails for every start.
+			const hourValue = (start + i) % 24;
 			const glyphs = splits[i].hour;
 			const digits = String(hourValue).padStart(glyphs.length, '0');
 			if (digits.length !== glyphs.length) {
@@ -261,7 +260,8 @@ export function learnPuaDigits(labelsTopDown: string[]): Map<string, string> | n
 /** Converts a `top` coordinate to an `"HH:MM"` string using the axis model. */
 export function topToTime(top: number, axis: TimeAxisInfo): string {
 	const hoursFromAnchor = (top - axis.anchorTop) / axis.hourHeight;
-	const totalMinutes = Math.round((axis.anchorHour + hoursFromAnchor) * 60);
+	// eCamp schedules on a 5-minute grid, so snap to the nearest 5 minutes.
+	const totalMinutes = Math.round(((axis.anchorHour + hoursFromAnchor) * 60) / 5) * 5;
 	const clamped = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
 	const hh = Math.floor(clamped / 60);
 	const mm = clamped % 60;
