@@ -43,7 +43,8 @@ function defaultContext(): CampContext {
 		],
 		diet: { vegetarisch: 3, vegan: 1, halal: 0, koscher: 0, laktosefrei: 1, glutenfrei: 1 },
 		activity: 'normal',
-		equipment: { gasbrenner: 4, kesselLiter: [30, 50], backofen: true, kuehlkapazitaetLiter: 200 },
+		// Default is a tent camp, so no oven by default (stays coherent with campType).
+		equipment: { gasbrenner: 4, kesselLiter: [30, 50], backofen: false, kuehlkapazitaetLiter: 200 },
 		allergies: [],
 		budgetPerPersonDay: 12,
 		grossverbraucher: false,
