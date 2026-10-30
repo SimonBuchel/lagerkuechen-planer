@@ -95,10 +95,12 @@ export async function loadPageGeometries(data: Uint8Array): Promise<PageGeometry
 	}).promise;
 
 	let docTitle: string | undefined;
+	let docProducer: string | undefined;
 	try {
 		const meta = await doc.getMetadata();
-		const info = meta.info as { Title?: string } | undefined;
+		const info = meta.info as { Title?: string; Producer?: string } | undefined;
 		if (info?.Title) docTitle = info.Title;
+		if (info?.Producer) docProducer = info.Producer;
 	} catch {
 		// metadata is optional
 	}
@@ -113,7 +115,7 @@ export async function loadPageGeometries(data: Uint8Array): Promise<PageGeometry
 		const rects = await extractFilledRects(page, height);
 		const words = await extractWords(page, height);
 
-		pages.push({ width, height, rects, words, docTitle });
+		pages.push({ width, height, rects, words, docTitle, docProducer });
 		page.cleanup();
 	}
 

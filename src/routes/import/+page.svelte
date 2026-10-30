@@ -175,6 +175,14 @@
 				<div class="text-xs text-gray-500 uppercase">Sonderaktivitäten</div>
 			</div>
 			<div class="ml-auto flex items-center gap-3">
+				{#if program.layout}
+					<span
+						class="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-800"
+						title="Das Layout wurde automatisch erkannt – du musst nichts auswählen."
+					>
+						{program.layout === 'grobprogramm' ? '✓ Grobprogramm erkannt' : '✓ Picasso-Druck erkannt'}
+					</span>
+				{/if}
 				{#if program.camp}
 					<div class="text-right text-xs text-gray-400">
 						<div>Camp: {program.camp}</div>

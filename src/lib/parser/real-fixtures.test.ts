@@ -38,7 +38,7 @@ describe.skipIf(pdfs.length === 0)('real eCamp fixtures', () => {
 
 			// Optional golden values.
 			const expectedName = name.replace(/\.pdf$/i, '.expected.json');
-			let expected: { dayCount?: number; mealCount?: number } | null = null;
+			let expected: { dayCount?: number; mealCount?: number; layout?: string } | null = null;
 			try {
 				expected = JSON.parse(readFileSync(join(fixturesDir, expectedName), 'utf-8'));
 			} catch {
@@ -46,6 +46,9 @@ describe.skipIf(pdfs.length === 0)('real eCamp fixtures', () => {
 			}
 			if (expected?.dayCount !== undefined) {
 				expect(program.days.length).toBe(expected.dayCount);
+			}
+			if (expected?.layout !== undefined) {
+				expect(program.layout).toBe(expected.layout);
 			}
 			if (expected?.mealCount !== undefined) {
 				const meals = program.days.reduce(
