@@ -27,7 +27,9 @@ export const config = {
 	baseUrl: env.PUBLIC_BASE_URL ?? 'http://localhost:5173',
 	anthropicApiKey: env.ANTHROPIC_API_KEY ?? '',
 	/** eCamp v3 API base (direct import). Override only for a self-hosted eCamp. */
-	ecampApiBase: env.ECAMP_API_BASE ?? 'https://app.ecamp3.ch/api'
+	ecampApiBase: env.ECAMP_API_BASE ?? 'https://app.ecamp3.ch/api',
+	/** Set to "1" once eCamp has cleared server-side access (bot protection). */
+	ecampDirectImport: env.ECAMP_DIRECT_IMPORT ?? ''
 };
 
 export const isConfigured = {
@@ -36,5 +38,6 @@ export const isConfigured = {
 	payments: config.stripeSecretKey.length > 0 && config.stripePriceId.length > 0,
 	webhooks: config.stripeWebhookSecret.length > 0,
 	database: config.databaseUrl.length > 0,
-	ai: config.anthropicApiKey.length > 0
+	ai: config.anthropicApiKey.length > 0,
+	ecamp: config.ecampDirectImport === '1'
 };

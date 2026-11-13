@@ -230,6 +230,19 @@ export function normalizePeriod(item: Json): EcampPeriod | null {
 // network
 // ---------------------------------------------------------------------------
 
+/**
+ * app.ecamp3.ch sits behind a bot-protection layer that answers server-side
+ * (non-browser) clients with 403 + an HTML page instead of the API. We do not
+ * try to get around that — we surface it, so the operator can clear access
+ * with the eCamp team instead of users seeing "wrong password".
+ */
+function blockedByBotProtection(res: Response): boolean {
+	return res.status === 403 && (res.headers.get('content-type') ?? '').includes('text/html');
+}
+
+const BLOCKED_MESSAGE =
+	'eCamp lässt diesen Zugriff nicht zu (Bot-Schutz vor app.ecamp3.ch). Der Direktimport braucht eine Freigabe durch eCamp – bitte vorerst den PDF-Import nutzen.';
+
 async function apiGet(
 	base: string,
 	url: string,
@@ -244,6 +257,7 @@ async function apiGet(
 	} catch {
 		throw new EcampError(502, 'eCamp ist nicht erreichbar.');
 	}
+	if (blockedByBotProtection(res)) throw new EcampError(503, BLOCKED_MESSAGE);
 	if (res.status === 401 || res.status === 403) {
 		throw new EcampError(401, 'eCamp-Sitzung abgelaufen – bitte neu anmelden.');
 	}
@@ -268,22 +282,41 @@ export async function collectAll(
 	return items;
 }
 
-/** Resolves the API entrypoint's resource links (`camps`, `periods`, …). */
-export async function resolveLinks(base: string, fetchImpl: Fetch): Promise<Record<string, string>> {
-	const entry = await apiGet(base, base, null, fetchImpl);
-	const out: Record<string, string> = {};
+/** The resource paths eCamp has used so far; used when the entrypoint can't be read. */
+export function defaultLinks(base: string): Record<string, string> {
+	const root = new URL(base).pathname.replace(/\/+$/, '');
+	return {
+		login: `${root}/authentication_token`,
+		camps: `${root}/camps`,
+		periods: `${root}/periods`,
+		scheduleEntries: `${root}/schedule_entries`,
+		activities: `${root}/activities`,
+		categories: `${root}/categories`
+	};
+}
+
+/**
+ * Resolves the API entrypoint's resource links (`camps`, `periods`, …), falling
+ * back to {@link defaultLinks} for anything missing — or for everything if the
+ * entrypoint can't be read (it answers 401 without a session).
+ */
+export async function resolveLinks(
+	base: string,
+	fetchImpl: Fetch,
+	jwt: EcampJwt | null = null
+): Promise<Record<string, string>> {
+	const out = defaultLinks(base);
+	let entry: unknown;
+	try {
+		entry = await apiGet(base, base, jwt, fetchImpl);
+	} catch {
+		return out;
+	}
 	if (isObj(entry) && isObj(entry._links)) {
 		for (const [rel, link] of Object.entries(entry._links as Json)) {
 			if (isObj(link) && typeof link.href === 'string') out[rel] = stripTemplate(link.href);
 		}
 	}
-	// Sensible fallbacks keep us working even if the entrypoint shape shifts.
-	out.login ??= '/api/authentication_token';
-	out.camps ??= '/api/camps';
-	out.periods ??= '/api/periods';
-	out.scheduleEntries ??= '/api/schedule_entries';
-	out.activities ??= '/api/activities';
-	out.categories ??= '/api/categories';
 	return out;
 }
 
@@ -294,7 +327,9 @@ export async function login(
 	password: string,
 	fetchImpl: Fetch = fetch
 ): Promise<EcampJwt> {
-	const links = await resolveLinks(base, fetchImpl);
+	// The entrypoint itself needs a session, so the login path is the one URL we
+	// can't discover first — it is the firewall's `check_path` and stable.
+	const links = defaultLinks(base);
 	let res: Response;
 	try {
 		res = await fetchImpl(absolute(base, links.login), {
@@ -306,6 +341,7 @@ export async function login(
 	} catch {
 		throw new EcampError(502, 'eCamp ist nicht erreichbar.');
 	}
+	if (blockedByBotProtection(res)) throw new EcampError(503, BLOCKED_MESSAGE);
 	if (res.status === 401 || res.status === 403) {
 		throw new EcampError(401, 'Anmeldung bei eCamp fehlgeschlagen – E-Mail oder Passwort falsch.');
 	}
@@ -321,7 +357,7 @@ export async function fetchCamps(
 	jwt: EcampJwt,
 	fetchImpl: Fetch = fetch
 ): Promise<EcampCamp[]> {
-	const links = await resolveLinks(base, fetchImpl);
+	const links = await resolveLinks(base, fetchImpl, jwt);
 	const [campItems, periodItems] = await Promise.all([
 		collectAll(base, links.camps, jwt, fetchImpl),
 		collectAll(base, links.periods, jwt, fetchImpl)
@@ -358,7 +394,7 @@ export async function fetchPeriodData(
 	periodIri: string,
 	fetchImpl: Fetch = fetch
 ): Promise<EcampPeriodData> {
-	const links = await resolveLinks(base, fetchImpl);
+	const links = await resolveLinks(base, fetchImpl, jwt);
 	const periodJson = await apiGet(base, periodIri, jwt, fetchImpl);
 	const period = isObj(periodJson) ? normalizePeriod(periodJson) : null;
 	const campIri = halLink(periodJson, 'camp');

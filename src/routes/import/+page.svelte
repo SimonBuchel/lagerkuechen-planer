@@ -4,8 +4,12 @@
 	import { emptyProgram, manualDay, standardTemplate } from '$lib/templates';
 	import { setProgram } from '$lib/stores/session.svelte';
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 
 	// --- Direct import from eCamp (exact times, no PDF) ---
+	// Off by default: app.ecamp3.ch's bot protection blocks server-side clients
+	// until eCamp clears access (ECAMP_DIRECT_IMPORT=1).
+	const ecampEnabled = $derived(page.data.ecampImport === true);
 	interface EcampPeriod {
 		id: string;
 		iri: string;
@@ -30,6 +34,7 @@
 	// Restore an existing eCamp session (httpOnly cookie) so the user needn't
 	// log in again while it is valid.
 	onMount(async () => {
+		if (!ecampEnabled) return;
 		try {
 			const res = await fetch('/api/ecamp/camps');
 			if (res.ok) {
@@ -226,12 +231,15 @@
 <div class="mx-auto max-w-5xl px-4 py-8">
 	<h1 class="text-2xl font-bold text-gray-900">Programm importieren</h1>
 	<p class="mt-1 text-gray-600">
-		Lade das Programm direkt aus eCamp (minutengenau) oder lade einen eCamp-PDF-Export hoch. Das
-		Ergebnis kannst du unten Zeile für Zeile prüfen und korrigieren, bevor es weitergeht.
+		{#if ecampEnabled}Lade das Programm direkt aus eCamp (minutengenau) oder lade einen
+			eCamp-PDF-Export hoch.{:else}Lade deinen eCamp-Export (PDF) hoch – beide Layouts werden
+			automatisch erkannt.{/if} Das Ergebnis kannst du unten Zeile für Zeile prüfen und
+		korrigieren, bevor es weitergeht.
 	</p>
 
 	<!-- Direct eCamp import + upload + alternatives -->
-	<div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+	<div class="mt-6 grid gap-4 sm:grid-cols-2 {ecampEnabled ? 'lg:grid-cols-3' : ''}">
+		{#if ecampEnabled}
 		<div class="rounded-lg border-2 border-emerald-200 bg-white p-5">
 			<div class="flex items-center justify-between">
 				<span class="font-medium text-gray-800">Direkt aus eCamp laden</span>
@@ -296,6 +304,7 @@
 				<p class="mt-2 text-xs text-red-700">{ecampError}</p>
 			{/if}
 		</div>
+		{/if}
 
 		<label
 			class="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white p-6 text-center transition hover:border-sky-400 hover:bg-sky-50"

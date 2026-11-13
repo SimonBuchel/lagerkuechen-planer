@@ -110,6 +110,22 @@ describe('network helpers (fake fetch)', () => {
 		expect(calls.filter((c) => c.includes('/api/camps')).length).toBe(2);
 	});
 
+	it('falls back to the default links when the entrypoint needs a session', async () => {
+		const fakeFetch: typeof fetch = async () => jsonResponse({}, { status: 401 });
+		const links = await resolveLinks(BASE, fakeFetch);
+		expect(links.login).toBe('/api/authentication_token');
+		expect(links.camps).toBe('/api/camps');
+	});
+
+	it('reports a bot-protection block (403 + HTML) as 503 instead of "wrong password"', async () => {
+		const fakeFetch: typeof fetch = async () =>
+			new Response('<!DOCTYPE html><title>Access denied</title>', {
+				status: 403,
+				headers: { 'content-type': 'text/html; charset=UTF-8' }
+			});
+		await expect(collectAll(BASE, '/api/camps', null, fakeFetch)).rejects.toMatchObject({ status: 503 });
+	});
+
 	it('turns 401 into a session error', async () => {
 		const fakeFetch: typeof fetch = async () => jsonResponse({}, { status: 401 });
 		await expect(collectAll(BASE, '/api/camps', null, fakeFetch)).rejects.toMatchObject({ status: 401 });

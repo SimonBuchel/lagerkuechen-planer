@@ -7,5 +7,6 @@ import { isConfigured } from '$lib/server/env';
  */
 export const load: LayoutServerLoad = () => ({
 	authConfigured: isConfigured.auth,
-	aiConfigured: isConfigured.ai
+	aiConfigured: isConfigured.ai,
+	ecampImport: isConfigured.ecamp
 });
