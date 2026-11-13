@@ -25,7 +25,9 @@ export const config = {
 	stripePriceId: env.STRIPE_PRICE_ID ?? '',
 	databaseUrl: env.DATABASE_URL ?? '',
 	baseUrl: env.PUBLIC_BASE_URL ?? 'http://localhost:5173',
-	anthropicApiKey: env.ANTHROPIC_API_KEY ?? ''
+	anthropicApiKey: env.ANTHROPIC_API_KEY ?? '',
+	/** eCamp v3 API base (direct import). Override only for a self-hosted eCamp. */
+	ecampApiBase: env.ECAMP_API_BASE ?? 'https://app.ecamp3.ch/api'
 };
 
 export const isConfigured = {

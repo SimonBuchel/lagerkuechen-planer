@@ -107,7 +107,7 @@ export interface TimeAxisInfo {
 /** The full parse result for one eCamp export. */
 export interface ParsedProgram {
 	/** Which export layout the file was recognised as (set by `parseEcampPdf`). */
-	layout?: 'picasso' | 'grobprogramm';
+	layout?: 'picasso' | 'grobprogramm' | 'ecamp-api';
 	/** eCamp camp id (e.g. `/camps/abc123`) from the PDF metadata, or null. */
 	camp: string | null;
 	/** eCamp period ids from the PDF metadata. */

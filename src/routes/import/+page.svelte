@@ -3,6 +3,116 @@
 	import { CATEGORY_LABELS } from '$lib/parser/types';
 	import { emptyProgram, manualDay, standardTemplate } from '$lib/templates';
 	import { setProgram } from '$lib/stores/session.svelte';
+	import { onMount } from 'svelte';
+
+	// --- Direct import from eCamp (exact times, no PDF) ---
+	interface EcampPeriod {
+		id: string;
+		iri: string;
+		description: string;
+		start: string;
+		end: string;
+	}
+	interface EcampCamp {
+		id: string;
+		iri: string;
+		name: string;
+		title: string;
+		periods: EcampPeriod[];
+	}
+	let ecampId = $state('');
+	let ecampPw = $state('');
+	let ecampCamps = $state<EcampCamp[] | null>(null);
+	let ecampPeriod = $state('');
+	let ecampBusy = $state(false);
+	let ecampError = $state<string | null>(null);
+
+	// Restore an existing eCamp session (httpOnly cookie) so the user needn't
+	// log in again while it is valid.
+	onMount(async () => {
+		try {
+			const res = await fetch('/api/ecamp/camps');
+			if (res.ok) {
+				ecampCamps = (await res.json()).camps;
+				pickDefaultPeriod();
+			}
+		} catch {
+			/* offline – the PDF path still works */
+		}
+	});
+
+	function pickDefaultPeriod() {
+		if (!ecampPeriod) ecampPeriod = ecampCamps?.[0]?.periods[0]?.iri ?? '';
+	}
+
+	async function ecampLogin() {
+		ecampBusy = true;
+		ecampError = null;
+		try {
+			const res = await fetch('/api/ecamp/login', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ identifier: ecampId, password: ecampPw })
+			});
+			const data = await res.json();
+			if (!res.ok) {
+				ecampError = data.error ?? 'Anmeldung fehlgeschlagen.';
+				return;
+			}
+			ecampPw = ''; // never keep the password around
+			ecampCamps = data.camps;
+			pickDefaultPeriod();
+			if (!ecampCamps?.length) ecampError = 'Keine Lager in diesem eCamp-Konto gefunden.';
+		} catch {
+			ecampError = 'Netzwerkfehler – bitte erneut versuchen.';
+		} finally {
+			ecampBusy = false;
+		}
+	}
+
+	async function ecampImport() {
+		if (!ecampPeriod) return;
+		ecampBusy = true;
+		ecampError = null;
+		error = null;
+		try {
+			const res = await fetch('/api/ecamp/import', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ periodIri: ecampPeriod })
+			});
+			const data = await res.json();
+			if (!res.ok) {
+				ecampError = data.error ?? 'Import fehlgeschlagen.';
+				if (res.status === 401) ecampCamps = null;
+				return;
+			}
+			program = data.program as ParsedProgram;
+			lastFile = null;
+			const camp = ecampCamps?.find((c) => c.periods.some((p) => p.iri === ecampPeriod));
+			fileName = camp ? camp.title : 'ecamp';
+		} catch {
+			ecampError = 'Netzwerkfehler – bitte erneut versuchen.';
+		} finally {
+			ecampBusy = false;
+		}
+	}
+
+	async function ecampLogout() {
+		try {
+			await fetch('/api/ecamp/logout', { method: 'POST' });
+		} catch {
+			/* ignore */
+		}
+		ecampCamps = null;
+		ecampPeriod = '';
+		ecampError = null;
+	}
+
+	function periodLabel(p: EcampPeriod): string {
+		const fmt = (iso: string) => iso.slice(0, 10).split('-').reverse().join('.');
+		return `${p.description ? p.description + ' · ' : ''}${fmt(p.start)} – ${fmt(p.end)}`;
+	}
 
 	const CATEGORIES: Category[] = ['ES', 'LA', 'LP', 'LS'];
 	const CATEGORY_STYLE: Record<Category, string> = {
@@ -116,12 +226,77 @@
 <div class="mx-auto max-w-5xl px-4 py-8">
 	<h1 class="text-2xl font-bold text-gray-900">Programm importieren</h1>
 	<p class="mt-1 text-gray-600">
-		Lade deinen eCamp-«Picasso»-Export als PDF hoch. Das Ergebnis kannst du unten Zeile für Zeile
-		prüfen und korrigieren, bevor es weitergeht.
+		Lade das Programm direkt aus eCamp (minutengenau) oder lade einen eCamp-PDF-Export hoch. Das
+		Ergebnis kannst du unten Zeile für Zeile prüfen und korrigieren, bevor es weitergeht.
 	</p>
 
-	<!-- Upload + alternatives -->
-	<div class="mt-6 grid gap-4 sm:grid-cols-2">
+	<!-- Direct eCamp import + upload + alternatives -->
+	<div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+		<div class="rounded-lg border-2 border-emerald-200 bg-white p-5">
+			<div class="flex items-center justify-between">
+				<span class="font-medium text-gray-800">Direkt aus eCamp laden</span>
+				<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800"
+					>EXAKT</span
+				>
+			</div>
+			<p class="mt-0.5 text-xs text-gray-500">Zeiten minutengenau aus deinem eCamp-Konto.</p>
+
+			{#if ecampCamps === null}
+				<form class="mt-3 space-y-2" onsubmit={(e) => { e.preventDefault(); ecampLogin(); }}>
+					<input
+						type="email"
+						autocomplete="username"
+						placeholder="eCamp-E-Mail"
+						class="w-full rounded-lg border-gray-300 text-sm"
+						bind:value={ecampId}
+						required
+					/>
+					<input
+						type="password"
+						autocomplete="current-password"
+						placeholder="eCamp-Passwort"
+						class="w-full rounded-lg border-gray-300 text-sm"
+						bind:value={ecampPw}
+						required
+					/>
+					<button
+						type="submit"
+						disabled={ecampBusy}
+						class="w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+						>{ecampBusy ? 'Anmelden …' : 'Bei eCamp anmelden'}</button
+					>
+				</form>
+				<p class="mt-2 text-[11px] text-gray-400">
+					Das Passwort wird nur an eCamp weitergereicht und nicht gespeichert. Namen von
+					Verantwortlichen werden nicht übernommen.
+				</p>
+			{:else}
+				<div class="mt-3 space-y-2">
+					<select class="w-full rounded-lg border-gray-300 text-sm" bind:value={ecampPeriod}>
+						{#each ecampCamps as camp (camp.iri)}
+							<optgroup label={camp.title}>
+								{#each camp.periods as p (p.iri)}
+									<option value={p.iri}>{periodLabel(p)}</option>
+								{/each}
+							</optgroup>
+						{/each}
+					</select>
+					<button
+						onclick={ecampImport}
+						disabled={ecampBusy || !ecampPeriod}
+						class="w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+						>{ecampBusy ? 'Lade …' : 'Programm importieren'}</button
+					>
+					<button class="text-[11px] text-gray-400 hover:text-gray-600" onclick={ecampLogout}
+						>von eCamp abmelden</button
+					>
+				</div>
+			{/if}
+			{#if ecampError}
+				<p class="mt-2 text-xs text-red-700">{ecampError}</p>
+			{/if}
+		</div>
+
 		<label
 			class="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white p-6 text-center transition hover:border-sky-400 hover:bg-sky-50"
 		>
@@ -180,7 +355,11 @@
 						class="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-800"
 						title="Das Layout wurde automatisch erkannt – du musst nichts auswählen."
 					>
-						{program.layout === 'grobprogramm' ? '✓ Grobprogramm erkannt' : '✓ Picasso-Druck erkannt'}
+						{program.layout === 'ecamp-api'
+							? '✓ Direkt aus eCamp (exakte Zeiten)'
+							: program.layout === 'grobprogramm'
+								? '✓ Grobprogramm erkannt'
+								: '✓ Picasso-Druck erkannt'}
 					</span>
 				{/if}
 				{#if program.camp}

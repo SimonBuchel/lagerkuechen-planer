@@ -37,6 +37,13 @@ vercel --prod # Produktions-Deployment
   Es wird nichts gespeichert.
 - **Später Konten/Zahlung aktivieren:** die nötigen Env-Variablen stehen in
   `src/lib/server/env.ts`; Datenbank-Setup in `db/README.md`.
+- **Direktimport aus eCamp:** braucht keine Konfiguration. Die Nutzer:in meldet
+  sich im Import mit dem eigenen eCamp-Login an; der Server reicht die Daten
+  einmal an `app.ecamp3.ch` weiter, hält nur die kurzlebige eCamp-Sitzung in
+  einem httpOnly-Cookie und speichert nie das Passwort. Für ein selbst
+  gehostetes eCamp lässt sich die Basis-URL mit `ECAMP_API_BASE` übersteuern.
+  Hinweis: eCamp gibt die API nicht offiziell für Drittanbieter frei – bei
+  Änderungen bleibt der PDF-Import als Fallback.
 - **KI-Menüplaner (optional):** Setze die Env-Variable `ANTHROPIC_API_KEY` (in
   Vercel unter *Settings → Environment Variables*). Dann erscheint im Menüplan
   der Knopf «✨ Smart-Plan (KI)», der die Auswahl von Claude nach Programm,
